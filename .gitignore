@@ -1,1 +1,5 @@
 /target
+
+# Référence C de karpathy/llama2.c (clone local, pas suivi par git)
+# Pour la récupérer : git clone --depth 1 https://github.com/karpathy/llama2.c.git reference/llama2.c
+/reference
