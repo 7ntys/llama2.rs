@@ -12,6 +12,7 @@ pub struct Config {
     n_kv_heads: i32,
     vocab_size: i32,
     seq_len: i32,
+    shared_weights: bool,
 }
 
 impl Config {
@@ -27,14 +28,20 @@ impl Config {
             values.push(val);
         }
 
+        let mut vocab_size = values[5];
+        let shared_weights = vocab_size > 0;
+
+        vocab_size = vocab_size.abs();
+
         Ok(Config {
             transformer_dimension: values[0],
             hidden_dimension: values[1],
             n_layers: values[2],
             n_heads: values[3],
             n_kv_heads: values[4],
-            vocab_size: values[5],
+            vocab_size,
             seq_len: values[6],
+            shared_weights,
         })
     }
 }
