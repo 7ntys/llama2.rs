@@ -16,11 +16,15 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(file_path: &str) -> Result<Self, Error> {
+    fn get_bytes_from_binary(file_path: &str) -> Result<[u8; 28], Error> {
         let mut f = File::open(file_path)?;
         let mut buffer = [0; 28];
 
         f.read_exact(&mut buffer)?;
+        return Ok(buffer);
+    }
+
+    fn decode(buffer: [u8; 28]) -> Self {
         let mut values: Vec<i32> = vec![];
         for i in (0..28).step_by(4) {
             let val_bytes: [u8; 4] = buffer[i..i + 4].try_into().unwrap();
@@ -28,12 +32,10 @@ impl Config {
             values.push(val);
         }
 
-        let mut vocab_size = values[5];
-        let shared_weights = vocab_size > 0;
+        let vocab_size = values[5].abs();
+        let shared_weights = values[5] > 0;
 
-        vocab_size = vocab_size.abs();
-
-        Ok(Config {
+        Config {
             transformer_dimension: values[0],
             hidden_dimension: values[1],
             n_layers: values[2],
@@ -42,6 +44,17 @@ impl Config {
             vocab_size,
             seq_len: values[6],
             shared_weights,
-        })
+        }
     }
+
+    pub fn new(file_path: &str) -> Result<Self, Error> {
+        let buffer = Config::get_bytes_from_binary(file_path)?;
+
+        Ok(Config::decode(buffer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }
