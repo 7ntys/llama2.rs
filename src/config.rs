@@ -5,14 +5,14 @@ use std::{
 
 #[derive(Debug)]
 pub struct Config {
-    transformer_dimension: i32,
-    hidden_dimension: i32,
-    n_layers: i32,
-    n_heads: i32,
-    n_kv_heads: i32,
-    vocab_size: i32,
-    seq_len: i32,
-    shared_weights: bool,
+    pub(crate) transformer_dimension: usize,
+    pub(crate) hidden_dimension: usize,
+    pub(crate) n_layers: usize,
+    pub(crate) n_heads: usize,
+    pub(crate) n_kv_heads: usize,
+    pub(crate) vocab_size: usize,
+    pub(crate) seq_len: usize,
+    pub(crate) shared_weights: bool,
 }
 
 impl Config {
@@ -36,13 +36,13 @@ impl Config {
         let shared_weights = values[5] > 0;
 
         Config {
-            transformer_dimension: values[0],
-            hidden_dimension: values[1],
-            n_layers: values[2],
-            n_heads: values[3],
-            n_kv_heads: values[4],
-            vocab_size,
-            seq_len: values[6],
+            transformer_dimension: values[0] as usize,
+            hidden_dimension: values[1] as usize,
+            n_layers: values[2] as usize,
+            n_heads: values[3] as usize,
+            n_kv_heads: values[4] as usize,
+            vocab_size: vocab_size as usize,
+            seq_len: values[6] as usize,
             shared_weights,
         }
     }
