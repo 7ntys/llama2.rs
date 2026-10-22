@@ -21,8 +21,9 @@ pub struct Weights {
 }
 
 impl Weights {
-    pub fn new(file_path: &str, cfg: Config) -> Result<Self, Error> {
-        todo!()
+    pub fn new(file_path: &str, cfg: &Config) -> Result<Self, Error> {
+        let buffer = Weights::load_binary(file_path)?;
+        Weights::carve_binary(buffer, cfg)
     }
 
     fn get_float_vector_from_binary(
@@ -123,16 +124,13 @@ impl Weights {
         // Process lm_head (if not shared)
         let lm_head = if !cfg.shared_weights {
             let lm_head_size = cfg.vocab_size * cfg.transformer_dimension;
+            let lm_head = Weights::get_float_vector_from_binary(&buffer, index, lm_head_size)?;
             index += lm_head_size;
-            Some(Weights::get_float_vector_from_binary(
-                &buffer,
-                index,
-                lm_head_size,
-            )?)
+            Some(lm_head)
         } else {
             None
         };
-
+        println!("Finish reading wiehgts at: {index}");
         Ok(Self {
             token_embeddings,
             attention_norm,
