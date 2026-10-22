@@ -3,6 +3,7 @@ use std::io::Error;
 use crate::{config::Config, weights::Weights};
 
 mod config;
+mod kernels;
 mod weights;
 
 pub fn entry_point() -> Result<(), Error> {
