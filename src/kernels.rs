@@ -1,4 +1,4 @@
-pub fn rmsnorm(x: &[f32], o: &mut [f32], weights: &[f32], size: usize) {
+pub fn rmsnorm(x: &[f32], w: &[f32], o: &mut [f32], size: usize) {
     let mut sum_square: f32 = 0.0;
 
     for i in 0..size {
@@ -9,7 +9,7 @@ pub fn rmsnorm(x: &[f32], o: &mut [f32], weights: &[f32], size: usize) {
     let factor = 1.0 / avg_square.sqrt();
 
     for i in 0..size {
-        o[i] = weights[i] * (x[i] * factor);
+        o[i] = w[i] * (x[i] * factor);
     }
 }
 
@@ -36,6 +36,16 @@ pub fn softmax(x: &mut [f32], size: usize) {
     }
 }
 
+pub fn matmul(x: &[f32], w: &[f32], o: &mut [f32], n: usize, d: usize) {
+    for i in 0..d {
+        let mut val = 0.0;
+        for j in 0..n {
+            val += w[i * n + j] * x[j];
+        }
+        o[i] = val;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -46,7 +56,7 @@ mod tests {
         let mut o: Vec<f32> = vec![0.0; 2];
         let w: Vec<f32> = vec![1.0, 2.0];
 
-        rmsnorm(&x, &mut o, &w, 2);
+        rmsnorm(&x, &w, &mut o, 2);
 
         assert!((o[0] - 0.849).abs() < 1e-3);
         assert!((o[1] - 2.263).abs() < 1e-3);
@@ -73,6 +83,23 @@ mod tests {
 
         for i in 0..3 {
             assert!((x[i] - expected[i]).abs() < 1e-3)
+        }
+    }
+
+    #[test]
+    fn verify_matmul() {
+        let x: Vec<f32> = vec![1.0, 0.0, 2.0];
+        let w: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let d = 2;
+        let n = 3;
+
+        let mut o: Vec<f32> = vec![0.0; d];
+        matmul(&x, &w, &mut o, n, d);
+
+        let expected = vec![7.0, 16.0];
+
+        for i in 0..d {
+            assert_eq!(o[i], expected[i])
         }
     }
 }
