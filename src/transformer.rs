@@ -43,6 +43,7 @@ impl Transformer {
 
     fn perform_attention(&mut self, l: usize, pos: usize) {
         // Iterate over n_heads:
+        let head_size_float = self.cfg.head_size as f32;
         for i in 0..self.cfg.n_heads {
             for t in 0..=pos {
                 let start_cache = l * self.cfg.seq_len * self.cfg.kv_dim
@@ -52,11 +53,12 @@ impl Transformer {
                     &self.state.q[i * self.cfg.head_size..(i + 1) * self.cfg.head_size],
                     &self.state.key_cache[start_cache..start_cache + self.cfg.head_size],
                 );
-                let head_size_float = self.cfg.head_size as f32;
                 let normalized_score = score / head_size_float.sqrt();
 
-                self.state.attention_scores[i * self.cfg.head_size + t] = normalized_score;
+                self.state.attention_scores[i * self.cfg.seq_len + t] = normalized_score;
             }
+
+            softmax(&mut self.state.attention_scores, pos + 1);
         }
     }
 
