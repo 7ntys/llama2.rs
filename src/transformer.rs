@@ -55,19 +55,18 @@ impl Transformer {
         // state.key_cache is in the form (n_layers * seq_len * kv_dim) => (6 * 256 * 288 )
         // with kv_dim = (n_kv_heads * head_size) => (6 * 48)
         // with head_size = (transformer_dim / n_heads) => (288 / 6)
-        let kv_dim = (self.cfg.transformer_dimension * self.cfg.n_kv_heads) / self.cfg.n_heads;
-        let start_cache = l * self.cfg.seq_len * kv_dim + pos * kv_dim;
-        let end_cache = l * self.cfg.seq_len * kv_dim + (pos + 1) * kv_dim;
+        let start_cache = l * self.cfg.seq_len * self.cfg.kv_dim + pos * self.cfg.kv_dim;
+        let end_cache = l * self.cfg.seq_len * self.cfg.kv_dim + (pos + 1) * self.cfg.kv_dim;
 
         // weights.attention_key is the form (n_layers * kv_dim * transformer_dim) => (6 * 288 * 288)
-        let start_kv = l * kv_dim * self.cfg.transformer_dimension;
-        let end_kv = (l + 1) * kv_dim * self.cfg.transformer_dimension;
+        let start_kv = l * self.cfg.kv_dim * self.cfg.transformer_dimension;
+        let end_kv = (l + 1) * self.cfg.kv_dim * self.cfg.transformer_dimension;
         matmul(
             &self.state.scratch,
             &self.weights.attention_key[start_kv..end_kv],
             &mut self.state.key_cache[start_cache..end_cache],
             self.cfg.transformer_dimension,
-            kv_dim,
+            self.cfg.kv_dim,
         );
 
         matmul(
@@ -75,7 +74,7 @@ impl Transformer {
             &self.weights.attention_value[start_kv..end_kv],
             &mut self.state.value_cache[start_cache..end_cache],
             self.cfg.transformer_dimension,
-            kv_dim,
+            self.cfg.kv_dim,
         );
     }
 

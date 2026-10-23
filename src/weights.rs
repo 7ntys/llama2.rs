@@ -48,10 +48,6 @@ impl Weights {
         let header_size = 7;
         let mut index = header_size;
 
-        // Compute useful stuff:
-        let head_size = cfg.transformer_dimension / cfg.n_heads;
-        let kv_dim = cfg.transformer_dimension * cfg.n_kv_heads / cfg.n_heads;
-
         // Process token_embeddings
         let embedding_size = cfg.vocab_size * cfg.transformer_dimension;
         let token_embeddings =
@@ -66,26 +62,26 @@ impl Weights {
 
         // Process attention_query
         let attention_query_size =
-            cfg.n_layers * cfg.transformer_dimension * cfg.n_heads * head_size;
+            cfg.n_layers * cfg.transformer_dimension * cfg.n_heads * cfg.head_size;
         let attention_query =
             Weights::get_float_vector_from_binary(&buffer, index, attention_query_size)?;
         index += attention_query_size;
 
         // Process attention_key
-        let attention_key_size = cfg.n_layers * cfg.transformer_dimension * kv_dim;
+        let attention_key_size = cfg.n_layers * cfg.transformer_dimension * cfg.kv_dim;
         let attention_key =
             Weights::get_float_vector_from_binary(&buffer, index, attention_key_size)?;
         index += attention_key_size;
 
         // Process attention_value
-        let attention_value_size = cfg.n_layers * cfg.transformer_dimension * kv_dim;
+        let attention_value_size = cfg.n_layers * cfg.transformer_dimension * cfg.kv_dim;
         let attention_value =
             Weights::get_float_vector_from_binary(&buffer, index, attention_value_size)?;
         index += attention_value_size;
 
         // Process attention_output
         let attention_output_size =
-            cfg.n_layers * cfg.n_heads * head_size * cfg.transformer_dimension;
+            cfg.n_layers * cfg.n_heads * cfg.head_size * cfg.transformer_dimension;
         let attention_output =
             Weights::get_float_vector_from_binary(&buffer, index, attention_output_size)?;
         index += attention_output_size;
@@ -116,10 +112,10 @@ impl Weights {
         index += final_norm_size;
 
         // Skip freq_cis_real (useless)
-        index += cfg.seq_len * head_size / 2;
+        index += cfg.seq_len * cfg.head_size / 2;
 
         // Skip freq_cis_imag
-        index += cfg.seq_len * head_size / 2;
+        index += cfg.seq_len * cfg.head_size / 2;
 
         // Process lm_head (if not shared)
         let lm_head = if !cfg.shared_weights {

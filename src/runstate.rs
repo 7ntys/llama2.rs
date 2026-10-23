@@ -28,10 +28,9 @@ impl RunState {
         let attention_scores: Vec<f32> = vec![0.0; cfg.n_heads * cfg.seq_len];
 
         let logits: Vec<f32> = vec![0.0; cfg.vocab_size];
-        let kv_dim = (cfg.transformer_dimension * cfg.n_kv_heads) / cfg.n_heads;
 
-        let key_cache: Vec<f32> = vec![0.0; cfg.n_layers * cfg.seq_len * kv_dim];
-        let value_cache: Vec<f32> = vec![0.0; cfg.n_layers * cfg.seq_len * kv_dim];
+        let key_cache: Vec<f32> = vec![0.0; cfg.n_layers * cfg.seq_len * cfg.kv_dim];
+        let value_cache: Vec<f32> = vec![0.0; cfg.n_layers * cfg.seq_len * cfg.kv_dim];
 
         Self {
             x,

@@ -12,6 +12,8 @@ pub struct Config {
     pub(crate) n_kv_heads: usize,
     pub(crate) vocab_size: usize,
     pub(crate) seq_len: usize,
+    pub(crate) kv_dim: usize,
+    pub(crate) head_size: usize,
     pub(crate) shared_weights: bool,
 }
 
@@ -34,6 +36,8 @@ impl Config {
 
         let vocab_size = values[5].abs();
         let shared_weights = values[5] > 0;
+        let head_size = values[0] as usize / values[3] as usize;
+        let kv_dim = values[4] as usize * head_size;
 
         Config {
             transformer_dimension: values[0] as usize,
@@ -44,6 +48,8 @@ impl Config {
             vocab_size: vocab_size as usize,
             seq_len: values[6] as usize,
             shared_weights,
+            head_size,
+            kv_dim,
         }
     }
 
