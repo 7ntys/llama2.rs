@@ -46,6 +46,15 @@ pub fn matmul(x: &[f32], w: &[f32], o: &mut [f32], n: usize, d: usize) {
     }
 }
 
+pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len());
+    let mut score = 0.0;
+    for i in 0..a.len() {
+        score += a[i] * b[i];
+    }
+    return score;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

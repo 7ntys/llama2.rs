@@ -34,12 +34,65 @@ impl Transformer {
 
         for l in 0..self.cfg.n_layers {
             self.normalize_before_attention(l);
-            self.attention_block(l, pos);
+            self.fill_attention(l, pos);
+            self.rope(l, pos);
+            self.perform_attention(l, pos);
         }
         todo!()
     }
 
-    fn attention_block(&mut self, l: usize, pos: usize) {
+    fn perform_attention(&mut self, l: usize, pos: usize) {
+        // Iterate over n_heads:
+        for i in 0..self.cfg.n_heads {
+            for t in 0..=pos {
+                let start_cache = l * self.cfg.seq_len * self.cfg.kv_dim
+                    + t * self.cfg.kv_dim
+                    + i * self.cfg.head_size;
+                let score = dot_product(
+                    &self.state.q[i * self.cfg.head_size..(i + 1) * self.cfg.head_size],
+                    &self.state.key_cache[start_cache..start_cache + self.cfg.head_size],
+                );
+                let head_size_float = self.cfg.head_size as f32;
+                let normalized_score = score / head_size_float.sqrt();
+
+                self.state.attention_scores[i * self.cfg.head_size + t] = normalized_score;
+            }
+        }
+    }
+
+    fn rope(&mut self, l: usize, pos: usize) {
+        let start_cache = l * self.cfg.seq_len * self.cfg.kv_dim + pos * self.cfg.kv_dim;
+        for i in (0..self.cfg.transformer_dimension).step_by(2) {
+            let head_dim = i % self.cfg.head_size;
+            let x: f32 = head_dim as f32 / self.cfg.head_size as f32;
+            let freq = 1.0 / (10_000.0_f32.powf(x));
+            let angle = pos as f32 * freq;
+
+            let cos = angle.cos();
+            let sin = angle.sin();
+
+            Transformer::rotate_pair(i, cos, sin, &mut self.state.q);
+
+            if i < self.cfg.kv_dim {
+                Transformer::rotate_pair(
+                    i,
+                    cos,
+                    sin,
+                    &mut self.state.key_cache[start_cache..start_cache + self.cfg.kv_dim],
+                );
+            }
+        }
+    }
+
+    fn rotate_pair(i: usize, cos: f32, sin: f32, v: &mut [f32]) {
+        let a = v[i];
+        let b = v[i + 1];
+
+        v[i] = a * cos - sin * b;
+        v[i + 1] = a * sin + cos * b;
+    }
+
+    fn fill_attention(&mut self, l: usize, pos: usize) {
         // Fill in Q, K, V
         // weights.attention_query is in the form (n_layers * transformer_dim * transformer_dim) => (6 * 288 * 288)
         let start = l * self.cfg.transformer_dimension * self.cfg.transformer_dimension;
