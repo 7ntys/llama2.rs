@@ -4,8 +4,8 @@ use crate::{config::Config, weights::Weights};
 
 mod config;
 mod kernels;
+mod runstate;
 mod weights;
-
 pub fn entry_point() -> Result<(), Error> {
     let file_path = "reference/llama2.c/stories15M.bin";
     let cfg = Config::new(&file_path)?;
