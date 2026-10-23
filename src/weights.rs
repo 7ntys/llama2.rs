@@ -6,18 +6,18 @@ use std::{
 use crate::{config::Config, weights};
 
 pub struct Weights {
-    token_embeddings: Vec<f32>,
-    attention_norm: Vec<f32>,
-    attention_query: Vec<f32>,
-    attention_key: Vec<f32>,
-    attention_value: Vec<f32>,
-    attention_output: Vec<f32>,
-    ffn_norm: Vec<f32>,
-    ffn_gate: Vec<f32>,
-    ffn_down: Vec<f32>,
-    ffn_up: Vec<f32>,
-    final_norm: Vec<f32>,
-    lm_head: Option<Vec<f32>>,
+    pub(crate) token_embeddings: Vec<f32>,
+    pub(crate) attention_norm: Vec<f32>,
+    pub(crate) attention_query: Vec<f32>,
+    pub(crate) attention_key: Vec<f32>,
+    pub(crate) attention_value: Vec<f32>,
+    pub(crate) attention_output: Vec<f32>,
+    pub(crate) ffn_norm: Vec<f32>,
+    pub(crate) ffn_gate: Vec<f32>,
+    pub(crate) ffn_down: Vec<f32>,
+    pub(crate) ffn_up: Vec<f32>,
+    pub(crate) final_norm: Vec<f32>,
+    pub(crate) lm_head: Option<Vec<f32>>,
 }
 
 impl Weights {
@@ -130,7 +130,7 @@ impl Weights {
         } else {
             None
         };
-        println!("Finish reading wiehgts at: {index}");
+        println!("Finish reading weights at: {index}");
         Ok(Self {
             token_embeddings,
             attention_norm,
