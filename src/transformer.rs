@@ -38,8 +38,20 @@ impl Transformer {
             self.rope(l, pos);
             self.perform_attention(l, pos);
             self.residual_output(l);
+            self.normalize_before_ffn(l);
         }
         todo!()
+    }
+
+    fn normalize_before_ffn(&mut self, l: usize) {
+        // Norm before FFN
+        rmsnorm(
+            &self.state.x,
+            &self.weights.ffn_norm
+                [l * self.cfg.transformer_dimension..(l + 1) * self.cfg.transformer_dimension],
+            &mut self.state.scratch,
+            self.cfg.transformer_dimension,
+        );
     }
 
     fn perform_attention(&mut self, l: usize, pos: usize) {
