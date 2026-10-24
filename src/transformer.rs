@@ -39,8 +39,28 @@ impl Transformer {
             self.perform_attention(l, pos);
             self.residual_output(l);
             self.normalize_before_ffn(l);
+            self.ffn_gate_up(l);
         }
         todo!()
+    }
+
+    fn ffn_gate_up(&mut self, l: usize) {
+        matmul(
+            &self.state.scratch,
+            &self.weights.ffn_gate[l * self.cfg.hidden_dimension * self.cfg.transformer_dimension
+                ..(l + 1) * self.cfg.transformer_dimension * self.cfg.hidden_dimension],
+            &mut self.state.ffn_gate,
+            self.cfg.transformer_dimension,
+            self.cfg.hidden_dimension,
+        );
+        matmul(
+            &self.state.scratch,
+            &self.weights.ffn_up[l * self.cfg.hidden_dimension * self.cfg.transformer_dimension
+                ..(l + 1) * self.cfg.transformer_dimension * self.cfg.hidden_dimension],
+            &mut self.state.ffn_up,
+            self.cfg.transformer_dimension,
+            self.cfg.hidden_dimension,
+        );
     }
 
     fn normalize_before_ffn(&mut self, l: usize) {
