@@ -37,6 +37,7 @@ impl Transformer {
             self.fill_attention(l, pos);
             self.rope(l, pos);
             self.perform_attention(l, pos);
+            self.residual_output(l);
         }
         todo!()
     }
@@ -76,6 +77,24 @@ impl Transformer {
                         * self.state.value_cache[start_cache + i];
                 }
             }
+        }
+    }
+
+    fn residual_output(&mut self, l: usize) {
+        // Mix all attention grade from the 6 heads :
+        matmul(
+            &self.state.scratch,
+            &self.weights.attention_output[l
+                * self.cfg.transformer_dimension
+                * self.cfg.transformer_dimension
+                ..(l + 1) * self.cfg.transformer_dimension * self.cfg.transformer_dimension],
+            &mut self.state.attention_out,
+            self.cfg.transformer_dimension,
+            self.cfg.transformer_dimension,
+        );
+
+        for i in 0..self.cfg.transformer_dimension {
+            self.state.x[i] += self.state.attention_out[i];
         }
     }
 
