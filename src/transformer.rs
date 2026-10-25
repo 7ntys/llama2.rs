@@ -41,8 +41,24 @@ impl Transformer {
             self.normalize_before_ffn(l);
             self.ffn_gate_up(l);
             self.swiglu();
+            self.ffn_gate_down(l);
         }
         todo!()
+    }
+
+    fn ffn_gate_down(&mut self, l: usize) {
+        matmul(
+            &self.state.ffn_gate,
+            &self.weights.ffn_down[l * self.cfg.transformer_dimension * self.cfg.hidden_dimension
+                ..(l + 1) * self.cfg.hidden_dimension * self.cfg.transformer_dimension],
+            &mut self.state.scratch,
+            self.cfg.hidden_dimension,
+            self.cfg.transformer_dimension,
+        );
+
+        for i in 0..self.cfg.transformer_dimension {
+            self.state.x[i] += self.state.scratch[i];
+        }
     }
 
     fn swiglu(&mut self) {
