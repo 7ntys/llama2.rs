@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    config::Config, sampler::argmax, tokenizer::Tokenizer, transformer::Transformer,
+    config::Config, sampler::Sampler, tokenizer::Tokenizer, transformer::Transformer,
     weights::Weights,
 };
 
@@ -21,6 +21,7 @@ pub fn entry_point() -> Result<(), Error> {
     let tokenizer_path = "reference/llama2.c/tokenizer.bin";
     let mut transformer = Transformer::build_transformer(weight_path)?;
     let tokenizer = Tokenizer::new(tokenizer_path, &transformer.cfg)?;
+    let mut sampler = Sampler::build_sampler(1.0, 42);
 
     let mut timer: Option<Instant> = None;
 
@@ -40,7 +41,7 @@ pub fn entry_point() -> Result<(), Error> {
         if pos < prompt_tokens.len() - 1 {
             next = prompt_tokens[pos + 1];
         } else {
-            next = argmax(logits);
+            next = sampler.sample(logits);
         }
 
         if next == 1 {

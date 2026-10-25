@@ -29,7 +29,7 @@ impl Transformer {
         })
     }
 
-    pub fn forward(&mut self, token: usize, pos: usize) -> &[f32] {
+    pub fn forward(&mut self, token: usize, pos: usize) -> &mut [f32] {
         self.retrieve_embeddings(token);
 
         for l in 0..self.cfg.n_layers {
@@ -70,7 +70,7 @@ impl Transformer {
                 );
             }
         }
-        return &self.state.logits;
+        return &mut self.state.logits;
     }
 
     fn ffn_gate_down(&mut self, l: usize) {
