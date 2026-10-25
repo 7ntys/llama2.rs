@@ -29,10 +29,19 @@ pub fn entry_point() -> Result<(), Error> {
     let mut pos = 0;
     let mut output = std::io::stdout();
 
+    // Test encoding prompt:
+    let prompt_tokens = tokenizer.encode("Hello my name is");
+
     // hard kv cache limit
     while pos < transformer.cfg.seq_len {
         let logits = transformer.forward(token, pos);
-        let next = argmax(logits);
+        let next: usize;
+
+        if pos < prompt_tokens.len() - 1 {
+            next = prompt_tokens[pos + 1];
+        } else {
+            next = argmax(logits);
+        }
 
         if next == 1 {
             break;
