@@ -29,7 +29,7 @@ impl Transformer {
         })
     }
 
-    pub fn forward(&mut self, token: usize, pos: usize) {
+    pub fn forward(&mut self, token: usize, pos: usize) -> &[f32] {
         self.retrieve_embeddings(token);
 
         for l in 0..self.cfg.n_layers {
@@ -43,7 +43,34 @@ impl Transformer {
             self.swiglu();
             self.ffn_gate_down(l);
         }
-        todo!()
+        rmsnorm(
+            &self.state.x,
+            &self.weights.final_norm,
+            &mut self.state.scratch,
+            self.cfg.transformer_dimension,
+        );
+
+        match &self.weights.lm_head {
+            Some(head) => {
+                matmul(
+                    &self.state.scratch,
+                    &head,
+                    &mut self.state.logits,
+                    self.cfg.transformer_dimension,
+                    self.cfg.vocab_size,
+                );
+            }
+            None => {
+                matmul(
+                    &self.state.scratch,
+                    &self.weights.token_embeddings,
+                    &mut self.state.logits,
+                    self.cfg.transformer_dimension,
+                    self.cfg.vocab_size,
+                );
+            }
+        }
+        return &self.state.logits;
     }
 
     fn ffn_gate_down(&mut self, l: usize) {
