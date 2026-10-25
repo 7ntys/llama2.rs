@@ -6,6 +6,7 @@ mod config;
 mod kernels;
 mod runstate;
 mod sampler;
+mod tokenizer;
 mod transformer;
 mod weights;
 
