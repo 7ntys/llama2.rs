@@ -1,4 +1,4 @@
-use std::io::Error;
+use std::{io::Error, usize};
 
 use crate::config::Config;
 
@@ -6,6 +6,7 @@ pub struct Tokenizer {
     pub(crate) max_token_length: usize,
     pub(crate) words: Vec<Vec<u8>>,
     pub(crate) scores: Vec<f32>,
+    pub(crate) byte_pieces: [u8; 256],
 }
 
 impl Tokenizer {
@@ -41,10 +42,31 @@ impl Tokenizer {
             words.push(word_bytes);
             scores.push(scores_f32);
         }
+        let mut byte_pieces = [0u8; 256];
+
+        for i in 0..256 {
+            byte_pieces[i] = i as u8;
+        }
+
         Ok(Self {
             max_token_length,
             words,
             scores,
+            byte_pieces,
         })
+    }
+
+    pub fn decode(&self, prev_token: usize, token: usize) -> &[u8] {
+        let word = &self.words[token];
+        if prev_token == 1 && word[0] == b' ' {
+            return &word[1..];
+        }
+        // Means special token :
+        if token >= 3 && token <= 258 {
+            let idx = token - 3;
+            return &self.byte_pieces[idx..idx + 1];
+        }
+
+        return &word;
     }
 }

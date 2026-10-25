@@ -126,7 +126,7 @@ impl Weights {
         } else {
             None
         };
-        println!("Finish reading weights at: {index}");
+        eprintln!("Finish reading weights at: {index}");
         Ok(Self {
             token_embeddings,
             attention_norm,

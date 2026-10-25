@@ -3,7 +3,7 @@ use std::io::Error;
 use crate::{config::Config, kernels::*, runstate::RunState, weights::Weights};
 
 pub struct Transformer {
-    cfg: Config,
+    pub(crate) cfg: Config,
     weights: Weights,
     state: RunState,
 }
