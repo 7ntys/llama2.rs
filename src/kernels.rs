@@ -55,6 +55,11 @@ pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
     return score;
 }
 
+pub fn silu(x: f32) -> f32 {
+    let divisor = 1.0 + f32::exp(-x);
+    return x * (1.0 / divisor);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,5 +115,10 @@ mod tests {
         for i in 0..d {
             assert_eq!(o[i], expected[i])
         }
+    }
+
+    #[test]
+    fn verify_silu() {
+        assert!((silu(2.0) - 1.762).abs() <= 1e-3)
     }
 }

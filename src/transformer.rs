@@ -40,8 +40,18 @@ impl Transformer {
             self.residual_output(l);
             self.normalize_before_ffn(l);
             self.ffn_gate_up(l);
+            self.swiglu();
         }
         todo!()
+    }
+
+    fn swiglu(&mut self) {
+        for i in 0..self.cfg.hidden_dimension {
+            let val = self.state.ffn_gate[i];
+
+            let x = silu(val) * self.state.ffn_up[i];
+            self.state.ffn_gate[i] = x;
+        }
     }
 
     fn ffn_gate_up(&mut self, l: usize) {
@@ -225,9 +235,4 @@ impl Transformer {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    pub fn verify_retrieve_embedings() {
-        todo!()
-    }
 }
