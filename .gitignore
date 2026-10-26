@@ -1,5 +1,8 @@
 /target
 
-# Référence C de karpathy/llama2.c (clone local, pas suivi par git)
-# Pour la récupérer : git clone --depth 1 https://github.com/karpathy/llama2.c.git reference/llama2.c
+# Local clone of the C reference, karpathy/llama2.c (not tracked by git)
+# To get it: git clone --depth 1 https://github.com/karpathy/llama2.c.git reference/llama2.c
 /reference
+
+# The learner's personal profile, read by the AI tutor (copy LEARNER.example.md)
+/LEARNER.md

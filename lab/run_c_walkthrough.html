@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>run.c walkthrough (llama2.c): a guide for porting it to any language</title>
+<style>
+:root{
+  --bg:#fbfaf7; --fg:#1f2328; --muted:#5f6b7a; --card:#ffffff; --border:#e3e0d8;
+  --accent:#2f6fde; --accent-soft:#e8f0fd; --green:#1f8a4c; --green-soft:#e6f5ec;
+  --orange:#b85c00; --orange-soft:#fdf0e1; --purple:#7a3fbf; --purple-soft:#f2eafb;
+  --red:#c0362c; --red-soft:#fdeceb; --code-bg:#f5f3ee; --kw:#a3248f; --cm:#6a737d; --num:#0b6e99; --str:#2b7a0b;
+  --side:270px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#15171a; --fg:#e6e6e6; --muted:#9aa4b1; --card:#1c1f23; --border:#2c3138;
+    --accent:#6ea0ff; --accent-soft:#1c2a44; --green:#5fd08f; --green-soft:#16301f;
+    --orange:#f0a050; --orange-soft:#33240f; --purple:#c39bff; --purple-soft:#2a1f3a;
+    --red:#ff7b72; --red-soft:#3a1d1b; --code-bg:#111316; --kw:#ff7ab8; --cm:#7d8590; --num:#79c0ff; --str:#8bd47a;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+nav{position:fixed;top:0;left:0;bottom:0;width:var(--side);overflow-y:auto;padding:22px 16px;border-right:1px solid var(--border);background:var(--card);font-size:14px}
+nav h2{font-size:15px;margin:0 0 4px}
+nav .sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+nav a{display:flex;gap:8px;align-items:baseline;color:var(--fg);text-decoration:none;padding:3px 6px;border-radius:6px}
+nav a:hover{background:var(--accent-soft)}
+nav a.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+nav a .n{color:var(--muted);font-variant-numeric:tabular-nums;min-width:22px}
+nav a.lvl2{padding-left:30px;font-size:13px}
+nav a.done::after{content:"✓";color:var(--green);margin-left:auto}
+nav .progress{margin:14px 0 6px;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+nav .progress div{height:100%;background:var(--green);width:0;transition:width .3s}
+nav .ptext{font-size:12px;color:var(--muted)}
+main{margin-left:var(--side);max-width:920px;padding:30px 44px 120px}
+@media (max-width:900px){nav{display:none}main{margin-left:0;padding:20px}}
+h1{font-size:30px;line-height:1.2;margin:10px 0 6px}
+h2{font-size:24px;margin:56px 0 10px;padding-top:12px;border-top:1px solid var(--border)}
+h3{font-size:19px;margin:34px 0 8px}
+h4{font-size:16px;margin:20px 0 6px}
+p{margin:10px 0}
+a{color:var(--accent)}
+code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:4px}
+.lead{color:var(--muted);font-size:17px}
+.box{border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--card);padding:12px 16px;border-radius:8px;margin:16px 0}
+.box > :first-child{margin-top:0}.box > :last-child{margin-bottom:0}
+.box .t{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.tldr{border-left-color:var(--accent);background:var(--accent-soft)} .tldr .t{color:var(--accent)}
+.analogy{border-left-color:var(--purple);background:var(--purple-soft)} .analogy .t{color:var(--purple)}
+.example{border-left-color:var(--green);background:var(--green-soft)} .example .t{color:var(--green)}
+.port{border-left-color:var(--orange);background:var(--orange-soft)} .port .t{color:var(--orange)}
+.warn{border-left-color:var(--red);background:var(--red-soft)} .warn .t{color:var(--red)}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px}
+th,td{border:1px solid var(--border);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--code-bg)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:"SF Mono",Menlo,monospace;font-size:13px}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;vertical-align:middle}
+.mvp{background:var(--green-soft);color:var(--green);border:1px solid var(--green)}
+.later{background:var(--orange-soft);color:var(--orange);border:1px solid var(--orange)}
+.skip{background:var(--code-bg);color:var(--muted);border:1px solid var(--border)}
+pre.code{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:10px 0;overflow-x:auto;font:13px/1.55 "SF Mono",Menlo,Consolas,monospace;margin:12px 0}
+pre.code .l{display:block;padding:0 14px 0 0;white-space:pre}
+pre.code .l::before{content:attr(data-n);display:inline-block;width:3.6em;padding-right:1em;text-align:right;color:var(--cm);opacity:.6;user-select:none}
+pre.code .l.hl{background:rgba(255,200,0,.14)}
+.kw{color:var(--kw)}.cm{color:var(--cm);font-style:italic}.nu{color:var(--num)}.st{color:var(--str)}
+.codecap{font-size:12.5px;color:var(--muted);margin:-6px 0 14px}
+.math{font-family:"SF Mono",Menlo,monospace;background:var(--code-bg);padding:8px 12px;border-radius:6px;display:block;margin:8px 0;font-size:14px;white-space:pre-wrap}
+details{border:1px solid var(--border);border-radius:8px;padding:8px 14px;margin:10px 0;background:var(--card)}
+details summary{cursor:pointer;font-weight:600}
+details[open] summary{margin-bottom:6px}
+.flow{display:flex;flex-direction:column;align-items:center;gap:0;margin:18px 0}
+.flow .s{border:1.5px solid var(--border);background:var(--card);border-radius:8px;padding:6px 14px;font-size:14px;min-width:340px;text-align:center}
+.flow .s small{color:var(--muted);display:block;font-size:12px}
+.flow .s.blk{border-color:var(--accent)}
+.flow .s.res{border-style:dashed;border-color:var(--green);color:var(--green)}
+.flow .arr{color:var(--muted);line-height:1.1;font-size:15px}
+.flow .loop{border:2px dashed var(--accent);border-radius:12px;padding:12px 16px 8px;display:flex;flex-direction:column;align-items:center;position:relative;margin:4px 0}
+.flow .loop::before{content:"× n_layers (6 times for stories15M)";position:absolute;top:-11px;right:14px;background:var(--bg);padding:0 6px;font-size:12px;color:var(--accent);font-weight:700}
+.widget{border:1px solid var(--border);background:var(--card);border-radius:10px;padding:14px 16px;margin:18px 0}
+.widget h4{margin:0 0 8px}
+.widget label{font-size:14px}
+.widget input[type=range]{width:240px;vertical-align:middle}
+.widget input[type=number]{width:70px}
+.bars .row{display:flex;align-items:center;gap:10px;margin:4px 0;font-size:14px}
+.bars .row .lab{width:80px}
+.bars .row .bar{height:16px;background:var(--accent);border-radius:3px;transition:width .15s}
+.bars .row .val{font-family:"SF Mono",Menlo,monospace;font-size:12.5px;color:var(--muted)}
+.layout{display:flex;height:42px;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin:10px 0}
+.layout div{height:100%;min-width:2px;cursor:pointer;border-right:1px solid rgba(0,0,0,.15)}
+.layout div:hover{filter:brightness(1.15)}
+#layoutInfo{font-family:"SF Mono",Menlo,monospace;font-size:13px;min-height:2.6em}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;background:var(--c)}
+.mono{font-family:"SF Mono",Menlo,monospace;font-size:13.5px}
+.check{display:flex;align-items:center;gap:8px;margin:20px 0 0;font-size:14px;color:var(--muted)}
+.check input{width:17px;height:17px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:700px){.grid2{grid-template-columns:1fr}}
+.cell{display:inline-block;min-width:34px;padding:2px 4px;margin:1px;border:1px solid var(--border);border-radius:4px;text-align:center;font-family:"SF Mono",Menlo,monospace;font-size:12.5px;background:var(--code-bg)}
+.cell.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cell.k{background:var(--green-soft);border-color:var(--green)}
+footer{margin-top:60px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<nav id="toc">
+  <h2>run.c — walkthrough</h2>
+  <div class="sub">llama2.c · stories15M · port it to your language</div>
+  <div class="progress"><div id="pbar"></div></div>
+  <div class="ptext" id="ptext"></div>
+  <div id="toclinks"></div>
+</nav>
+
+<main>
+
+<h1>Walkthrough of <code>run.c</code></h1>
+<p class="lead">A guided tour of run.c, piece by piece, in the order you'll code it, so you can port it to any language.
+Each section gives you a one-sentence summary, an analogy, an example you can work out by hand, the commented C,
+and what to keep in mind for your port. No solution code here: writing it is your job.</p>
+
+<div class="box tldr">
+  <div class="t">How to read this guide</div>
+  <p>One section at a time. Tick "I understood this section" at the bottom of each section (it is saved in your browser).
+  Line numbers point to <code>reference/llama2.c/run.c</code>. The "real" numbers come from
+  <code>stories15M.bin</code>, read straight from the file.</p>
+  <p>Legend: <span class="pill mvp">MVP</span> needed to reproduce <code>./run stories15M.bin -t 0</code> ·
+  <span class="pill later">later</span> postponed · <span class="pill skip">skip</span> not useful for you.</p>
+</div>
+
+<!-- ============================================================ -->
+<section id="carte">
+<h2>1. Map of the file</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p><code>run.c</code> is 973 lines long, but the core (the model itself) fits in <code>forward</code>, about 130 lines.
+The rest is file loading, text ↔ numbers, and sampling.</p></div>
+
+<table>
+<tr><th>Lines</th><th>Block</th><th>Role</th><th>For you</th></tr>
+<tr><td class="num">19–75</td><td>The 4 <code>struct</code>s</td><td><code>Config</code>, <code>TransformerWeights</code>, <code>RunState</code>, <code>Transformer</code>: the data "boxes"</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">77–109</td><td><code>malloc_run_state</code></td><td>Allocates all the working buffers once and for all</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">111–177</td><td>Loading the checkpoint</td><td>Reads the header, then slices the file into tensors</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">182–229</td><td><code>rmsnorm</code>, <code>softmax</code>, <code>matmul</code></td><td>The 3 math building blocks</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">231–362</td><td><code>forward</code></td><td><b>The model.</b> One token + its position → 32,000 scores</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">367–416</td><td>Tokenizer (structs + loading)</td><td>Reads <code>tokenizer.bin</code>: the id → text table</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">418–443</td><td><code>decode</code>, <code>safe_printf</code></td><td>id → piece of text to print</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">445–571</td><td><code>encode</code> (BPE)</td><td>prompt text → ids</td><td><span class="pill later">later</span></td></tr>
+<tr><td class="num">577–714</td><td>Sampler</td><td>Picks the next token from the scores</td><td>argmax <span class="pill mvp">MVP</span> · the rest <span class="pill later">later</span></td></tr>
+<tr><td class="num">729–783</td><td><code>generate</code></td><td>The main loop</td><td><span class="pill mvp">MVP</span></td></tr>
+<tr><td class="num">802–884</td><td><code>chat</code></td><td>Llama-2 chat mode (proof of concept)</td><td><span class="pill skip">skip</span></td></tr>
+<tr><td class="num">906–972</td><td><code>main</code></td><td>Reads the arguments, builds everything, starts the run</td><td><span class="pill mvp">MVP</span> (simple version)</td></tr>
+</table>
+
+<div class="box port"><div class="t">Good news for the MVP</div>
+<p>Without <code>-i</code> (no prompt), <code>encode</code> does only one thing: it adds the BOS token (id 1).
+Look at line 482: the "dummy prefix" is only added if the text is not empty. So your MVP can
+<b>start directly with token 1</b> and skip all of BPE.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="carte"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="c101">
+<h2>2. The minimum C you need to read run.c</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>You only need 6 C ideas: struct, pointer, <code>-&gt;</code>, pointer arithmetic, <code>calloc</code>/<code>free</code>, <code>memcpy</code>.</p></div>
+
+<table>
+<tr><th>C</th><th>What it means</th><th>Mental equivalent in your language (idea, not code)</th></tr>
+<tr><td><code>float* x</code></td><td>"the address of a first float". C does not know how many floats follow it: you are the one who knows.</td><td>An array view (slice) without its length. Most modern languages keep the length with the slice, which is a good thing. <b>Rust note:</b> a Rust slice carries its length.</td></tr>
+<tr><td><code>x[i]</code></td><td>The i-th float starting from that address.</td><td>Indexing, but <b>without</b> bounds checking.</td></tr>
+<tr><td><code>ptr + n</code> / <code>ptr += n</code></td><td>Move forward by <b>n elements</b> (not n bytes!). A <code>float*</code> + 3 moves forward 12 bytes.</td><td>Taking a sub-slice that starts further along.</td></tr>
+<tr><td><code>p-&gt;dim</code></td><td>"the <code>dim</code> field of the struct that <code>p</code> points to". It is the same as <code>(*p).dim</code>.</td><td>Accessing a field through a reference (most languages dereference for you).</td></tr>
+<tr><td><code>&amp;t-&gt;config</code></td><td>The address of the <code>config</code> field: the struct is passed "by reference" so the function can fill it in.</td><td>Passing a mutable reference (or an object the function can modify). <b>Rust note:</b> a mutable borrow, &amp;mut.</td></tr>
+<tr><td><code>calloc(n, sizeof(float))</code></td><td>Allocate n floats, all set to zero. <code>free</code> gives them back.</td><td>An array of n zeros; freed automatically (or by the garbage collector).</td></tr>
+<tr><td><code>memcpy(dst, src, n_octets)</code></td><td>Copy a block of bytes.</td><td>Copy one slice into another of the same size.</td></tr>
+<tr><td><code>1.0f</code>, <code>expf</code>, <code>sqrtf</code></td><td>The <code>f</code> = the 32-bit float version.</td><td>Everything is float32. Use float32 everywhere to match the C output.</td></tr>
+</table>
+
+<div class="box example"><div class="t">Example: pointer arithmetic</div>
+<p>Picture a flat array of 6 floats <code>[a, b, c, d, e, f]</code> and a <code>float* p</code> that points to <code>a</code>.</p>
+<p><code>p + 2</code> points to <code>c</code>. <code>(p + 2)[1]</code> is <code>d</code>. All the weight loading relies on this:
+"the wq tensor starts here, the next one starts N floats further on".</p></div>
+
+<div class="box warn"><div class="t">Two lines not to misread</div>
+<p><code>#pragma omp parallel for</code> (lines 221, 283): a parallelism hint for OpenMP. With <code>make run</code>,
+it is <b>ignored</b> (not compiled with <code>-fopenmp</code>). For you: plain sequential code. Later, it is where you can add parallelism (threads, a thread pool...). <b>Rust note:</b> this is where rayon would go.</p>
+<p><code>unsigned long long</code> (lines 114, 249): an unsigned 64-bit integer, used so offset multiplications don't overflow on big models (13B+).</p></div>
+
+<label class="check"><input type="checkbox" data-sec="c101"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="generate">
+<h2>3. The big picture: <code>main</code> then <code>generate</code></h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>You build 3 objects (the model, the tokenizer, the sampler), then you run a loop:
+<b>forward → pick the next token → print it → repeat</b>, up to 256 tokens.</p></div>
+
+<h3>3.1 <code>main</code>: build the 3 objects</h3>
+<script type="text/x-c" data-start="944">    // build the Transformer via the model .bin file
+    Transformer transformer;
+    build_transformer(&transformer, checkpoint_path);
+    if (steps == 0 || steps > transformer.config.seq_len) steps = transformer.config.seq_len; // override to ~max length
+
+    // build the Tokenizer via the tokenizer .bin file
+    Tokenizer tokenizer;
+    build_tokenizer(&tokenizer, tokenizer_path, transformer.config.vocab_size);
+
+    // build the Sampler
+    Sampler sampler;
+    build_sampler(&sampler, transformer.config.vocab_size, temperature, topp, rng_seed);</script>
+<p>Default values (lines 909–917): <code>tokenizer.bin</code>, temperature 1.0, top-p 0.9, 256 steps, seed = the current time.
+With <code>-t 0</code>, the seed and top-p no longer matter. That is why the output becomes <b>deterministic</b>.</p>
+<p>Note: <code>vocab_size</code> comes from the <b>model</b>, not from the tokenizer (Karpathy forgot to store it in <code>tokenizer.bin</code>, see his “sigh” on line 386).</p>
+
+<h3>3.2 <code>generate</code>: the loop</h3>
+<script type="text/x-c" data-start="742" data-hl="750,758,760,763,766,769">    // start the main loop
+    long start = 0;  // used to time our code, only initialized after first iteration
+    int next;        // will store the next token in the sequence
+    int token = prompt_tokens[0]; // kick off with the first token in the prompt
+    int pos = 0;     // position in the sequence
+    while (pos < steps) {
+
+        // forward the transformer to get logits for the next token
+        float* logits = forward(transformer, token, pos);
+
+        // advance the state machine
+        if (pos < num_prompt_tokens - 1) {
+            // if we are still processing the input prompt, force the next prompt token
+            next = prompt_tokens[pos + 1];
+        } else {
+            // otherwise sample the next token from the logits
+            next = sample(sampler, logits);
+        }
+        pos++;
+
+        // data-dependent terminating condition: the BOS (=1) token delimits sequences
+        if (next == 1) { break; }
+
+        // print the token as string, decode it with the Tokenizer object
+        char* piece = decode(tokenizer, token, next);
+        safe_printf(piece); // same as printf("%s", piece), but skips "unsafe" bytes
+        fflush(stdout);
+        token = next;
+
+        // init the timer here because the first iteration can be slower
+        if (start == 0) { start = time_in_ms(); }
+    }</script>
+
+<div class="box analogy"><div class="t">Analogy</div>
+<p>A storyteller who only sees <b>the last word they just said</b>, plus their notes (the KV cache) on all the words before it.
+Each turn, they say just one more word. During the prompt, someone whispers the words to them: they “say” them without choosing.</p></div>
+
+<div class="box example"><div class="t">Trace by hand</div>
+<p><b>MVP case, no prompt</b>: <code>prompt_tokens = [1]</code>, so <code>num_prompt_tokens = 1</code>, and you sample from the very first turn.</p>
+<table>
+<tr><th>pos</th><th>token given to forward</th><th>next</th><th>printed</th></tr>
+<tr><td class="num">0</td><td>1 (BOS)</td><td>argmax → A</td><td>text of A, <i>without the leading space</i> (because prev = BOS)</td></tr>
+<tr><td class="num">1</td><td>A</td><td>argmax → B</td><td>text of B</td></tr>
+<tr><td class="num">2</td><td>B</td><td>argmax → C</td><td>text of C</td></tr>
+<tr><td>…</td><td>…</td><td>…</td><td>until pos = 256 or next == 1</td></tr>
+</table>
+<p><b>With <code>-i "Once upon"</code></b>: encode gives <code>[1, 9038, 2501]</code> (= BOS, “␣Once”, “␣upon”, checked in <code>tokenizer.bin</code>).</p>
+<table>
+<tr><th>pos</th><th>token</th><th>next</th><th>comment</th></tr>
+<tr><td class="num">0</td><td>1</td><td>9038 <i>forced</i></td><td>the logits are computed… and thrown away</td></tr>
+<tr><td class="num">1</td><td>9038</td><td>2501 <i>forced</i></td><td>same</td></tr>
+<tr><td class="num">2</td><td>2501</td><td>sample</td><td>first real generated token</td></tr>
+</table></div>
+
+<div class="box tldr"><div class="t">Three details to remember</div>
+<ul>
+<li><b>forward gets only one token</b> at a time, plus its position <code>pos</code>. The earlier tokens “live” in the KV cache.</li>
+<li>Generation stops on <b>BOS (1)</b>, not EOS (2): in TinyStories, every story starts with BOS.</li>
+<li>The timer starts <b>after</b> the first turn (line 772): the tok/s figure counts <code>pos − 1</code> tokens.</li>
+</ul></div>
+
+<div class="box port"><div class="t">If you want to go further</div>
+<p>During the prompt, run.c does a full forward per token and throws the logits away. This is exactly what
+<b>prefill</b> optimizes in a real server (process the whole prompt at once). Keep this in mind for later.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="generate"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="config">
+<h2>4. The Config: 7 integers at the start of the file</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>The first 28 bytes of <code>stories15M.bin</code> are 7 little-endian <code>int32</code> values that describe the shape of the model.</p></div>
+
+<script type="text/x-c" data-start="19">typedef struct {
+    int dim; // transformer dimension
+    int hidden_dim; // for ffn layers
+    int n_layers; // number of layers
+    int n_heads; // number of query heads
+    int n_kv_heads; // number of key/value heads (can be < query heads because of multiquery)
+    int vocab_size; // vocabulary size, usually 256 (byte-level)
+    int seq_len; // max sequence length
+} Config;</script>
+
+<table>
+<tr><th>Field</th><th class="num">stories15M</th><th>What it is, simply</th></tr>
+<tr><td><code>dim</code></td><td class="num">288</td><td>The size of the vector that represents one token. The “width” of the model (C in B/T/C).</td></tr>
+<tr><td><code>hidden_dim</code></td><td class="num">768</td><td>The width inside the feed-forward (it widens 288 → 768, then comes back).</td></tr>
+<tr><td><code>n_layers</code></td><td class="num">6</td><td>Number of stacked blocks (layers).</td></tr>
+<tr><td><code>n_heads</code></td><td class="num">6</td><td>Number of attention heads for the queries.</td></tr>
+<tr><td><code>n_kv_heads</code></td><td class="num">6</td><td>Number of heads for keys/values. Here it equals n_heads → <b>no GQA</b> in stories15M.</td></tr>
+<tr><td><code>vocab_size</code></td><td class="num">32000</td><td>Number of possible tokens. <b>Positive</b> → shared weights (see below).</td></tr>
+<tr><td><code>seq_len</code></td><td class="num">256</td><td>Maximum sequence length (size of the KV cache, maximum number of steps).</td></tr>
+</table>
+
+<h4>Derived values (computed in forward and malloc_run_state)</h4>
+<table>
+<tr><th>Name</th><th>Formula</th><th class="num">stories15M</th><th>Meaning</th></tr>
+<tr><td><code>head_size</code></td><td>dim / n_heads</td><td class="num">48</td><td>Size of one head's piece of q/k/v</td></tr>
+<tr><td><code>kv_dim</code></td><td>dim × n_kv_heads / n_heads</td><td class="num">288</td><td>Size of k and v (smaller than dim with GQA)</td></tr>
+<tr><td><code>kv_mul</code></td><td>n_heads / n_kv_heads</td><td class="num">1</td><td>How many q heads share one kv head</td></tr>
+</table>
+
+<h4>The negative vocab_size hack</h4>
+<script type="text/x-c" data-start="147">    if (fread(config, sizeof(Config), 1, file) != 1) { exit(EXIT_FAILURE); }
+    // negative vocab size is hacky way of signaling unshared weights. bit yikes.
+    int shared_weights = config->vocab_size > 0 ? 1 : 0;
+    config->vocab_size = abs(config->vocab_size);</script>
+<p>At the end of the model, you need a “classifier” matrix that turns the 288-number vector into 32,000 scores.
+Many small models <b>reuse the embedding table</b> for this (same shape: 32000 × 288).
+The sign of vocab_size tells you which case you are in: positive = shared (stories15M), negative = a separate <code>wcls</code> matrix, stored at the end of the file.</p>
+
+<div class="box example"><div class="t">Check it yourself</div>
+<p><code>xxd -l 28 stories15M.bin</code> shows the first 28 bytes. 288 = 0x120, so the first 4 bytes are <code>20 01 00 00</code>
+(little-endian: the lowest byte comes first).</p></div>
+
+<div class="box port"><div class="t">For your port</div>
+<p>Step 2 of the plan: read these 28 bytes, print them, and compare with the table above. Remember “little-endian” and “signed int32” (the sign matters, because of the hack).</p></div>
+
+<label class="check"><input type="checkbox" data-sec="config"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="weights">
+<h2>5. The checkpoint: slicing one big array of floats</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>After the header, the file is just <b>one long run of float32 values packed back to back</b>, with no separators.
+<code>memory_map_weights</code> knows the order they are stored in, and puts a “bookmark” at the start of each tensor.</p></div>
+
+<div class="box analogy"><div class="t">Analogy</div>
+<p>A roll of tape with no markings. You know the first 9,216,000 floats are the embedding, then 1,728 for the rmsnorm, and so on.
+You move a cursor forward (<code>ptr +=</code>) and write down where each piece starts.</p></div>
+
+<script type="text/x-c" data-start="111">void memory_map_weights(TransformerWeights *w, Config* p, float* ptr, int shared_weights) {
+    int head_size = p->dim / p->n_heads;
+    // make sure the multiplications below are done in 64bit to fit the parameter counts of 13B+ models
+    unsigned long long n_layers = p->n_layers;
+    w->token_embedding_table = ptr;
+    ptr += p->vocab_size * p->dim;
+    w->rms_att_weight = ptr;
+    ptr += n_layers * p->dim;
+    w->wq = ptr;
+    ptr += n_layers * p->dim * (p->n_heads * head_size);
+    w->wk = ptr;
+    ptr += n_layers * p->dim * (p->n_kv_heads * head_size);
+    w->wv = ptr;
+    ptr += n_layers * p->dim * (p->n_kv_heads * head_size);
+    w->wo = ptr;
+    ptr += n_layers * (p->n_heads * head_size) * p->dim;
+    w->rms_ffn_weight = ptr;
+    ptr += n_layers * p->dim;
+    w->w1 = ptr;
+    ptr += n_layers * p->dim * p->hidden_dim;
+    w->w2 = ptr;
+    ptr += n_layers * p->hidden_dim * p->dim;
+    w->w3 = ptr;
+    ptr += n_layers * p->dim * p->hidden_dim;
+    w->rms_final_weight = ptr;
+    ptr += p->dim;
+    ptr += p->seq_len * head_size / 2; // skip what used to be freq_cis_real (for RoPE)
+    ptr += p->seq_len * head_size / 2; // skip what used to be freq_cis_imag (for RoPE)
+    w->wcls = shared_weights ? w->token_embedding_table : ptr;
+}</script>
+
+<div class="widget">
+  <h4>The stories15M.bin file, to scale</h4>
+  <div class="layout" id="layoutBar"></div>
+  <div class="legend" id="layoutLegend"></div>
+  <p id="layoutInfo" class="mono">Hover or click a segment.</p>
+</div>
+
+<h3 id="recette">5.1 The recipe: how to compute each size</h3>
+<div class="box tldr"><div class="t">Two units, one rule</div>
+<p>The formulas below give a <b>number of floats</b> (weights). Your file buffer is in <b>bytes</b>: one float = 4 bytes,
+so <b>bytes = 4 × floats</b>, both for the size and for the start position.</p>
+<p>The Config fields are <b>ingredients</b> (“6 layers”, “288 cells”). Only their <b>product</b> is a size.
+Do all this math with 64-bit integers (e.g. <code>usize</code> in Rust, not <code>i32</code>): a 32-bit integer overflows past ~2.1 billion, which happens on big models (see the comment on line 113 of the C code).</p></div>
+
+<h4>Step 1: the derived values (compute these first)</h4>
+<table>
+<tr><th>Name</th><th>Formula</th><th>stories15M calculation</th><th class="num">Value</th></tr>
+<tr><td><code>head_size</code></td><td>dim / n_heads</td><td>288 / 6</td><td class="num">48</td></tr>
+<tr><td><code>kv_dim</code></td><td>dim × n_kv_heads / n_heads</td><td>288 × 6 / 6</td><td class="num">288</td></tr>
+<tr><td>header size</td><td>7 fields × 4 bytes</td><td>7 × 4</td><td class="num">28 bytes = 7 floats</td></tr>
+</table>
+
+<h4>Step 2: each tensor, in file order</h4>
+<p>The “Start” column is the cursor position <b>before</b> reading the tensor, counted from the very start of the file (header included).
+After each tensor, the cursor moves forward by “Num floats”.</p>
+<div style="overflow-x:auto"><table id="layoutTable"></table></div>
+<p>The total lands <b>exactly</b> on the file size: 60,816,028 bytes. This is the final test for your loader:
+in both cases (shared or not), your cursor must end <b>exactly</b> at the end of the file. If it stops early or goes past the end, one of your formulas is wrong.</p>
+
+<div class="box warn"><div class="t">Three pitfalls</div>
+<ul>
+<li><b>The order is not the order of the comments in the struct.</b> In the file, <code>rms_ffn_weight</code> comes <i>after</i> <code>wo</code>. Follow <code>memory_map_weights</code>, not the struct.</li>
+<li><b>The 2 RoPE gaps</b> (lines 137–138): old precomputed arrays that are still in the file but no longer used. You must <b>skip</b> them, or <code>wcls</code> would be wrong (in unshared mode).</li>
+<li><b>One tensor holds all the layers, one after another.</b> <code>wq</code> = 6 matrices of 288×288 packed together. Layer <code>l</code> starts at <code>wq + l*dim*dim</code> (you will see this in forward).</li>
+</ul></div>
+
+<h4>How a matrix is stored</h4>
+<p>All matrices are stored <b>row by row</b> (row-major), with <b>one row per output value</b>.
+For <code>w1</code>: 768 rows (one per hidden neuron) of 288 numbers (one per input). The shape comments in the struct
+(lines 36–43) are not all written the same way round. Trust how <code>matmul</code> reads them instead (section 7).</p>
+
+<h4><code>mmap</code>: why it is used, and why you don't need it</h4>
+<p><code>mmap</code> (line 158) tells the OS: “act as if the file were already one big array in memory, and load the pages when I touch them”.
+The benefit: instant startup, no copy. For 60 MB, reading the whole file at once works just as well, and you avoid <code>unsafe</code> memory-mapping code.
+Line 160: <code>*data + sizeof(Config)/sizeof(float)</code> = skip 28/4 = <b>7 floats</b>, which is the header.</p>
+
+<div class="box port"><div class="t">For your port</div>
+<p>Step 3 of the plan. Do it in two passes: (1) turn the bytes after the header into a list of little-endian float32 values,
+(2) slice that list in the exact order shown above. For the shared classifier, don't copy 37 MB: you just need to know
+that you read the embedding table at that point.</p>
+<p>Simple test: print the first 5 floats of <code>token_embedding_table</code> and of <code>rms_final_weight</code> in your port and in C (add a <code>printf</code> to the C code), then compare.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="weights"> I understood this section</label>
+</section>
+<!-- ============================================================ -->
+<section id="runstate">
+<h2>6. RunState: the work tables</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>All the in-between vectors of the computation are allocated <b>only once</b> at startup, then reused for every token. Zero allocations inside the loop.</p></div>
+
+<div class="box analogy"><div class="t">Analogy</div>
+<p>Think of whiteboards in a room. You don't buy a new board for each sentence: you wipe it and write again.
+The KV cache is the only board you <b>never wipe</b> during a generation. You add one row per token.</p></div>
+
+<table>
+<tr><th>Buffer</th><th class="num">Size</th><th class="num">stories15M</th><th>Used for</th></tr>
+<tr><td><code>x</code></td><td class="num">dim</td><td class="num">288</td><td>The token's "current" vector, which flows through the layers (the residual stream)</td></tr>
+<tr><td><code>xb</code></td><td class="num">dim</td><td class="num">288</td><td>Scratch buffer: normalized x, then attention output, then FFN output</td></tr>
+<tr><td><code>xb2</code></td><td class="num">dim</td><td class="num">288</td><td>Scratch buffer: output of <code>wo</code></td></tr>
+<tr><td><code>hb</code>, <code>hb2</code></td><td class="num">hidden_dim</td><td class="num">768</td><td>Inside the FFN (w1·x and w3·x)</td></tr>
+<tr><td><code>q</code></td><td class="num">dim</td><td class="num">288</td><td>The query of the current token</td></tr>
+<tr><td><code>k</code>, <code>v</code></td><td colspan="2"><b>not allocated!</b></td><td>Just pointers to the right row of the KV cache (see 8.3)</td></tr>
+<tr><td><code>att</code></td><td class="num">n_heads × seq_len</td><td class="num">1,536</td><td>The attention scores, one row per head</td></tr>
+<tr><td><code>logits</code></td><td class="num">vocab_size</td><td class="num">32,000</td><td>The output: one score per possible token</td></tr>
+<tr><td><code>key_cache</code></td><td class="num">n_layers × seq_len × kv_dim</td><td class="num">442,368</td><td>All past keys, for every layer (1.77 MB)</td></tr>
+<tr><td><code>value_cache</code></td><td class="num">same</td><td class="num">442,368</td><td>All past values (1.77 MB)</td></tr>
+</table>
+
+<div class="box port"><div class="t">For your port</div>
+<p>Use one struct (or object) that owns all these buffers. The compute functions only borrow what they need.
+If you find yourself copying a vector inside forward, that is a sign the function signature needs rethinking.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="runstate"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="briques">
+<h2>7. The 3 building blocks: rmsnorm, softmax, matmul</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>All of <code>forward</code> is built from these three functions (plus a few simple loops). Write them and test them <b>before</b> forward.</p></div>
+
+<h3 id="rmsnorm">7.1 rmsnorm — bring the vector back to the right scale</h3>
+<script type="text/x-c" data-start="182">void rmsnorm(float* o, float* x, float* weight, int size) {
+    // calculate sum of squares
+    float ss = 0.0f;
+    for (int j = 0; j < size; j++) {
+        ss += x[j] * x[j];
+    }
+    ss /= size;
+    ss += 1e-5f;
+    ss = 1.0f / sqrtf(ss);
+    // normalize and scale
+    for (int j = 0; j < size; j++) {
+        o[j] = weight[j] * (ss * x[j]);
+    }
+}</script>
+<table>
+<tr><th>Parameter</th><th>Role</th><th>In the example below</th></tr>
+<tr><td><code>x</code></td><td>the <b>input</b>: the vector to normalize (read only)</td><td>[3, 4]</td></tr>
+<tr><td><code>o</code></td><td>the <b>output</b> (<i>o</i>): a box where the function <b>writes</b> the result</td><td>gets [0.849, 2.263]</td></tr>
+<tr><td><code>weight</code></td><td>the tuning values, one per cell</td><td>[1, 2]</td></tr>
+<tr><td><code>size</code></td><td>the length of the vectors</td><td>2</td></tr>
+</table>
+<p>A C habit: a function does not "return" an array. You give it a box to write into. <code>matmul(xout, x, …)</code> follows the same pattern.
+In forward: <code>rmsnorm(s-&gt;xb, x, …)</code> (line 252) reads the stream <code>x</code> and writes into the scratch buffer <code>xb</code>. <code>x</code> stays untouched for the residual.</p>
+<div class="box analogy"><div class="t">Analogy</div>
+<p>A volume control. Whether the vector arrives shouting (big numbers) or whispering, you bring it back to an "average volume" of 1.
+Then <code>weight</code> turns each cell up or down on its own (learned during training).</p></div>
+<div class="box example"><div class="t">Example (seen before)</div>
+<p>x = [3, 4], weight = [1, 2]</p>
+<span class="math">mean of squares = (9 + 16) / 2 = 12.5      (+ 1e-5, negligible here)
+1 / √12.5 = 0.2828
+normalized x = [3 × 0.2828, 4 × 0.2828] = [0.849, 1.131]
+× weight     = [0.849 × 1, 1.131 × 2]   = [0.849, 2.263]</span>
+<p><b>RMSNorm vs LayerNorm</b> (GPT-2): LayerNorm first subtracts the mean and adds a bias. RMSNorm only divides by the "average size" (RMS = root mean square). Simpler, and just as effective.</p></div>
+<div class="box port"><div class="t">For your port</div>
+<p>Line 357: <code>rmsnorm(x, x, ...)</code> uses the same buffer as input and output. C doesn't care, but some languages won't let you read and write the same buffer at once
+(<b>Rust note:</b> the borrow checker refuses it). Two options: an "in place" variant, or write into another buffer.
+Note that this is fine mathematically: the sum of squares is fully computed <i>before</i> the first write.</p></div>
+
+<h3 id="softmax">7.2 softmax — turn scores into percentages</h3>
+<script type="text/x-c" data-start="197">void softmax(float* x, int size) {
+    // find max value (for numerical stability)
+    float max_val = x[0];
+    for (int i = 1; i < size; i++) {
+        if (x[i] > max_val) {
+            max_val = x[i];
+        }
+    }
+    // exp and sum
+    float sum = 0.0f;
+    for (int i = 0; i < size; i++) {
+        x[i] = expf(x[i] - max_val);
+        sum += x[i];
+    }
+    // normalize
+    for (int i = 0; i < size; i++) {
+        x[i] /= sum;
+    }
+}</script>
+<div class="box example"><div class="t">Example</div>
+<span class="math">x = [1, 2, 3]
+− max (3)     → [-2, -1, 0]
+exp           → [0.1353, 0.3679, 1.0000]    sum = 1.5032
+÷ sum         → [0.0900, 0.2447, 0.6652]    (total = 1)</span>
+<p><b>Why subtract the max?</b> The result is mathematically the same (it cancels out on top and bottom).
+But <code>exp(1000)</code> overflows in f32 (infinity), while <code>exp(0)</code> = 1. With the max at 0, the largest exp is always 1: no overflow.</p></div>
+<p>Note: softmax works <b>in place</b> (it overwrites its input) and only touches the first <code>size</code> cells.
+In attention, <code>size = pos + 1</code>: only the tokens seen so far.</p>
+
+<h3 id="matmul">7.3 matmul — the function where all the time goes</h3>
+<script type="text/x-c" data-start="217">void matmul(float* xout, float* x, float* w, int n, int d) {
+    // W (d,n) @ x (n,) -> xout (d,)
+    // by far the most amount of time is spent inside this little function
+    int i;
+    #pragma omp parallel for private(i)
+    for (i = 0; i < d; i++) {
+        float val = 0.0f;
+        for (int j = 0; j < n; j++) {
+            val += w[i * n + j] * x[j];
+        }
+        xout[i] = val;
+    }
+}</script>
+<p><b>Read the parameter order carefully:</b> <code>n</code> = size of the <b>input</b>, <code>d</code> = size of the <b>output</b>. W has d rows of n numbers.</p>
+<div class="box analogy"><div class="t">Analogy</div>
+<p>W is d "detectors". Each detector (one row) looks at the whole input vector and gives a score (a dot product).
+The output = the list of d scores.</p></div>
+<div class="box example"><div class="t">Example (d = 2, n = 3)</div>
+<span class="math">W = [[1, 2, 3],        stored flat: w = [1, 2, 3, 4, 5, 6]
+     [4, 5, 6]]
+x = [1, 0, 2]
+
+xout[0] = 1×1 + 2×0 + 3×2 = 7         w[0*3+0], w[0*3+1], w[0*3+2]
+xout[1] = 4×1 + 5×0 + 6×2 = 16        w[1*3+0], w[1*3+1], w[1*3+2]</span>
+<p>The index <code>i*n + j</code> is the 2D version of the usual flat-array formula <code>b*T*C + t*C + c</code>: "skip i full rows, then move forward by j".</p></div>
+
+<div class="widget">
+  <h4>Where the compute goes for one token (stories15M)</h4>
+  <div class="bars" id="flopBars"></div>
+  <p style="font-size:14px;color:var(--muted);margin-bottom:0">Each weight is used exactly once per token (one multiply + one add).
+  For this small model, the <b>final classifier</b> (32000 × 288) is ~61% of the work. On a 7B model, it would be a few %.</p>
+</div>
+
+<div class="box port"><div class="t">For your port</div>
+<p>Before forward: write one test per building block, using the examples above (worked out by hand, so you know what to expect).
+For matmul, watch the (n, d) order: it is bug #1 in ports of run.c. A test with a <b>non-square</b> matrix (2×3) catches it right away; a square matrix does not.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="briques"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="forward">
+<h2>8. forward: one token goes through the model</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p><code>forward(token, pos)</code> takes <b>one</b> token and its position, and returns <b>32,000 scores</b> (the logits).
+There are <b>12 steps</b>: step 1 runs once, steps 2 to 10 are <b>repeated 6 times</b> (once per layer <code>l</code>), and steps 11 and 12 run once.</p></div>
+
+<h3 id="dims">8.0 Reminder: the dimensions</h3>
+<p>The key points:</p>
+<ul>
+<li>Everywhere: <code>W · x = result</code>, with <b>W = (size of result) × (size of x)</b>. E.g. <code>(768×288) · (288×1) = (768×1)</code>.</li>
+<li>Each layer has its own W, stored one after the other. <b>"W[l]"</b> in this section = the W of layer <code>l</code>, which starts at <code>l × (size of one W)</code>.</li>
+<li>The norms are not W matrices: one tuning value per cell (288 per layer), multiplied cell by cell.</li>
+</ul>
+
+<h3 id="f-io">8.A What forward takes and returns</h3>
+<table>
+<tr><th>Parameter</th><th>Type</th><th>What it is</th></tr>
+<tr><td><code>token</code></td><td>integer</td><td>the token's <b>number</b> in the vocabulary (0 to 31,999)</td></tr>
+<tr><td><code>pos</code></td><td>integer</td><td>its <b>position</b> in the sentence (0, 1, 2…). Used for: storing k/v in the cache, the RoPE angle, how many past tokens to look at</td></tr>
+<tr><td>returns</td><td>the logits</td><td>32,000 scores, one per possible token (the <code>logits</code> buffer)</td></tr>
+</table>
+<div class="box example"><div class="t">Turn by turn (made-up tokens)</div>
+<table>
+<tr><th>Call</th><th>The cache already holds</th><th>argmax of the logits</th></tr>
+<tr><td><code>forward(1, 0)</code> (BOS)</td><td>nothing</td><td>"Once"</td></tr>
+<tr><td><code>forward(id of "Once", 1)</code></td><td>k, v of BOS</td><td>"upon"</td></tr>
+<tr><td><code>forward(id of "upon", 2)</code></td><td>k, v of BOS and "Once"</td><td>"a"</td></tr>
+</table>
+<p>Only one new token per call. Old tokens are never processed again: you read their k and v back from the cache.</p></div>
+
+<h3 id="f-map">8.B The map of the 12 steps</h3>
+<p>Suggested names. "[l]" = the slice for layer <code>l</code>. "[l][pos]" = row <code>pos</code> of layer <code>l</code> in the cache.</p>
+<div style="overflow-x:auto"><table>
+<tr><th>#</th><th>Step</th><th>Reads from Weights</th><th>Reads from RunState</th><th>Writes to</th><th class="num">Size</th></tr>
+<tr><td>1</td><td>Embedding</td><td>token_embeddings (row <code>token</code>)</td><td>—</td><td><code>x</code></td><td class="num">288</td></tr>
+<tr><th colspan="6" style="text-align:center">for each layer l = 0 … 5</th></tr>
+<tr><td>2</td><td>Norm</td><td>attention_norm[l]</td><td><code>x</code></td><td><code>scratch</code></td><td class="num">288</td></tr>
+<tr><td>3</td><td>q, k, v</td><td>attention_query[l], attention_key[l], attention_value[l]</td><td><code>scratch</code></td><td><code>q</code>, key_cache[l][pos], value_cache[l][pos]</td><td class="num">288 ×3</td></tr>
+<tr><td>4</td><td>RoPE</td><td>—</td><td><code>q</code>, key_cache[l][pos]</td><td>the same (in place)</td><td class="num">288</td></tr>
+<tr><td>5</td><td>Attention</td><td>—</td><td><code>q</code>, key_cache[l][0..=pos], value_cache[l][0..=pos]</td><td><code>att</code>, then <code>scratch</code></td><td class="num">288</td></tr>
+<tr><td>6</td><td>Output + residual</td><td>attention_output[l]</td><td><code>scratch</code></td><td><code>attention_out</code>, then <code>x +=</code></td><td class="num">288</td></tr>
+<tr><td>7</td><td>Norm</td><td>ffn_norm[l]</td><td><code>x</code></td><td><code>scratch</code></td><td class="num">288</td></tr>
+<tr><td>8</td><td>gate, up</td><td>ffn_gate[l], ffn_up[l]</td><td><code>scratch</code></td><td><code>hb</code>, <code>hb2</code></td><td class="num">768 ×2</td></tr>
+<tr><td>9</td><td>SwiGLU</td><td>—</td><td><code>hb</code>, <code>hb2</code></td><td><code>hb</code></td><td class="num">768</td></tr>
+<tr><td>10</td><td>down + residual</td><td>ffn_down[l]</td><td><code>hb</code></td><td><code>scratch</code>, then <code>x +=</code></td><td class="num">288</td></tr>
+<tr><th colspan="6" style="text-align:center">after the 6 layers</th></tr>
+<tr><td>11</td><td>Final norm</td><td>final_norm</td><td><code>x</code></td><td><code>scratch</code></td><td class="num">288</td></tr>
+<tr><td>12</td><td>Logits</td><td>lm_head (or token_embeddings if shared)</td><td><code>scratch</code></td><td><code>logits</code></td><td class="num">32,000</td></tr>
+</table></div>
+
+<div class="box tldr"><div class="t">The common thread: x</div>
+<p><code>x</code> is the token's sheet. After step 1, it is <b>never replaced</b>:
+it is only <b>added to</b>, twice per layer (steps 6 and 10). Everything else happens in scratch buffers.</p></div>
+
+<h4>What <code>scratch</code> holds, step by step</h4>
+<table>
+<tr><th>After step</th><th>scratch holds</th><th>Used by</th></tr>
+<tr><td>2</td><td>normalized x</td><td>step 3</td></tr>
+<tr><td>5</td><td>the outputs of the 6 heads, side by side</td><td>step 6</td></tr>
+<tr><td>7</td><td>normalized x (again)</td><td>step 8</td></tr>
+<tr><td>10</td><td>the feed-forward result</td><td>the addition in step 10</td></tr>
+<tr><td>11</td><td>final normalized x</td><td>step 12</td></tr>
+</table>
+<p>You can overwrite it each time because its previous content has <b>already been used</b>.</p>
+<!-- ================= step 1 ================= -->
+<h3 id="f-1">Step 1 — Embedding</h3>
+<p><b>What it does:</b> copy the token's row into <code>x</code>. No math.</p>
+<span class="math">x = token_embeddings, cells token×288 to (token+1)×288</span>
+<script type="text/x-c" data-start="244">    // copy the token embedding into x
+    float* content_row = w->token_embedding_table + token * dim;
+    memcpy(x, content_row, dim*sizeof(*x));</script>
+<div class="box port"><div class="t">For your port</div>
+<p>Copy into <code>x</code> (it already exists). Do not allocate a new array. Check: token = 0 → x starts with −0.059825, −0.014561, 0.106149.</p>
+<p>No position is added here (unlike GPT-2). The position comes in at step 4 (RoPE).</p></div>
+
+<!-- ================= step 2 ================= -->
+<h3 id="f-2">Step 2 — Norm before attention</h3>
+<p><b>What it does:</b> bring x back to a standard "volume", in the scratch buffer. <b>x stays untouched</b>: you need it at step 6.</p>
+<span class="math">scratch = rmsnorm(x, attention_norm[l])        attention_norm[l] = cells l×288 to (l+1)×288</span>
+<script type="text/x-c" data-start="251">        // attention rmsnorm
+        rmsnorm(s->xb, x, w->rms_att_weight + l*dim, dim);</script>
+
+<!-- ================= step 3 ================= -->
+<h3 id="f-3">Step 3 — Make q, k, v (and fill the cache)</h3>
+<p><b>What it does:</b> three <code>W · x</code> on the same <code>scratch</code>. The k and v results go <b>straight</b> into the KV cache.</p>
+<span class="math">q                  = attention_query[l] · scratch      (288×288)·(288×1) = 288×1
+key_cache[l][pos]  = attention_key[l]   · scratch      (288×288)·(288×1) = 288×1
+value_cache[l][pos]= attention_value[l] · scratch      (288×288)·(288×1) = 288×1</span>
+<div class="box analogy"><div class="t">Analogy (the meeting)</div>
+<p>q = the question the token asks. k = its badge. v = what it has to say if someone comes to it.
+The KV cache is the <b>register</b>: one page per layer, one row per seat (pos). Each token writes its row once and never rewrites it.</p></div>
+<p><b>Where is row [l][pos]?</b> The cache is laid out as [layer][position][288]:</p>
+<span class="math">start of key_cache[l][pos] = l × 256 × 288  +  pos × 288</span>
+<div class="widget">
+  <h4>KV cache index calculator (stories15M: seq_len = 256, kv_dim = 288, head_size = 48)</h4>
+  <label>layer l <input type="number" id="kvL" min="0" max="5" value="1"></label>&nbsp;
+  <label>position t <input type="number" id="kvT" min="0" max="255" value="2"></label>&nbsp;
+  <label>head h <input type="number" id="kvH" min="0" max="5" value="3"></label>&nbsp;
+  <label>kv_mul <input type="number" id="kvM" min="1" max="6" value="1"></label>
+  <p class="mono" id="kvOut"></p>
+</div>
+<script type="text/x-c" data-start="254" data-hl="256,257">        // key and value point to the kv cache
+        int loff = l * p->seq_len * kv_dim; // kv cache layer offset for convenience
+        s->k = s->key_cache + loff + pos * kv_dim;
+        s->v = s->value_cache + loff + pos * kv_dim;
+
+        // qkv matmuls for this position
+        matmul(s->q, s->xb, w->wq + l*dim*dim, dim, dim);
+        matmul(s->k, s->xb, w->wk + l*dim*kv_dim, dim, kv_dim);
+        matmul(s->v, s->xb, w->wv + l*dim*kv_dim, dim, kv_dim);</script>
+<div class="box port"><div class="t">For your port</div>
+<p>In the C, <code>s->k</code> and <code>s->v</code> are pointers into the cache row (not separate buffers). In your code: compute the <b>start of the row</b> (a number),
+and pass the slice <code>key_cache[start .. start + 288]</code> directly as the matmul output.</p>
+<p>For stories15M, k and v have 288 values. On a model with GQA, they have <code>kv_dim</code> values (smaller): use <code>kv_dim</code>, not 288.</p></div>
+
+<!-- ================= step 4 ================= -->
+<h3 id="f-rope">Step 4 — RoPE: give q and k their position</h3>
+<p><b>What it does:</b> <b>rotate</b> q and the k you just wrote (key_cache[l][pos]) by an angle that depends on <code>pos</code>. v is not touched.
+Result: the q·k score (step 5) depends on the <b>distance</b> between the two tokens.</p>
+
+<p><b>a) A pair of numbers = an arrow.</b> Split the vector into pairs (cells 0-1, 2-3, …). To rotate the arrow (v0, v1) by an angle θ:</p>
+<span class="math">v0' = v0 × cos θ − v1 × sin θ
+v1' = v0 × sin θ + v1 × cos θ</span>
+<p>E.g. the arrow (1, 0) rotated by 90° becomes (0, 1).</p>
+
+<p><b>b) The angle = pos × freq.</b> At token 0 there is no rotation. At token 5, you rotate by 5 notches.</p>
+
+<p><b>c) Each pair has its own speed.</b> Inside a head (48 cells = 24 pairs), pair 0 turns fast and the last pair turns very slowly:</p>
+<span class="math">freq = 1 / 10000^(head_dim / head_size)        head_dim = 0, 2, 4, … , 46</span>
+<div class="box example"><div class="t">Example: head_size = 4 (2 pairs), pos = 1</div>
+<span class="math">pair 0: freq = 1/10000^(0/4) = 1     → angle 1 rad
+pair 1: freq = 1/10000^(2/4) = 0.01  → angle 0.01 rad
+q = [1, 0, 1, 0]  →  [cos 1, sin 1, cos 0.01, sin 0.01] = [0.5403, 0.8415, 0.99995, 0.0100]</span></div>
+
+<p><b>d) Why "relative".</b> q is rotated by m×θ, k by n×θ: their product only sees the gap (m − n)×θ.</p>
+<span class="math">m = 3, n = 1 → gap 2 → q·k = cos 2 = −0.416
+m = 5, n = 3 → gap 2 → q·k = cos 2 = −0.416      same score</span>
+
+<div class="widget">
+  <h4>Play with RoPE (one pair)</h4>
+  <div class="grid2">
+    <div>
+      <label>freq <select id="rFreq"><option value="1">1 (fast, pair 0)</option><option value="0.3">0.3</option><option value="0.01">0.01 (slow)</option></select></label><br>
+      <label>position of q (m) <input type="range" id="rM" min="0" max="20" value="3"> <span id="rMv"></span></label><br>
+      <label>position of k (n) <input type="range" id="rN" min="0" max="20" value="1"> <span id="rNv"></span></label>
+      <p class="mono" id="rOut"></p>
+      <p style="font-size:13px;color:var(--muted)">Keep the same gap between m and n: the score does not change.</p>
+    </div>
+    <svg id="rSvg" viewBox="-120 -120 240 240" style="width:100%;max-width:260px"></svg>
+  </div>
+</div>
+
+<script type="text/x-c" data-start="264">        // RoPE relative positional encoding: complex-valued rotate q and k in each head
+        for (int i = 0; i < dim; i+=2) {
+            int head_dim = i % head_size;
+            float freq = 1.0f / powf(10000.0f, head_dim / (float)head_size);
+            float val = pos * freq;
+            float fcr = cosf(val);
+            float fci = sinf(val);
+            int rotn = i < kv_dim ? 2 : 1; // how many vectors? 2 = q & k, 1 = q only
+            for (int v = 0; v < rotn; v++) {
+                float* vec = v == 0 ? s->q : s->k; // the vector to rotate (query or key)
+                float v0 = vec[i];
+                float v1 = vec[i+1];
+                vec[i]   = v0 * fcr - v1 * fci;
+                vec[i+1] = v0 * fci + v1 * fcr;
+            }
+        }</script>
+<ul>
+<li>The loop walks the 288 cells of q two at a time. <code>i % head_size</code> = the position <i>inside</i> the head: each head starts again at pair 0.</li>
+<li><code>rotn</code>: if k is shorter than q (GQA), past kv_dim only q is rotated. For stories15M: always both.</li>
+<li>So the cache stores k vectors that are <b>already rotated</b>. Old ones are never rotated again.</li>
+<li>The pairs are <b>neighboring</b> cells (i, i+1). Hugging Face pairs them differently (i and i + 24): do not mix the two.</li>
+</ul>
+<div class="box port"><div class="t">For your port</div>
+<p>Same formula, in float32, in the same order as the C. Convert <code>pos</code> to float32 for the multiplication. An error of 1e-6 here can change an argmax later.</p></div>
+
+<!-- ================= step 5 ================= -->
+<h3 id="f-att">Step 5 — Attention, head by head</h3>
+<p><b>What it does:</b> the token compares its question to the badges of all tokens <b>already seen</b> (0 to pos), and gets back a mix of what they have to say.</p>
+
+<p><b>Heads are just a way of slicing.</b> The 288 cells of q (and of each cache row) are cut into 6 slices of 48:</p>
+<table>
+<tr><th>head h</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
+<tr><th>cells</th><td>0–47</td><td>48–95</td><td>96–143</td><td>144–191</td><td>192–239</td><td>240–287</td></tr>
+</table>
+
+<p><b>For each head h, three sub-steps:</b></p>
+<table>
+<tr><th></th><th>Computation</th><th>Written to</th></tr>
+<tr><td>5a scores</td><td>for t = 0 … pos: <code>(slice h of q) · (slice h of key_cache[l][t]) / √48</code></td><td><code>att</code>, row h, cells 0 … pos</td></tr>
+<tr><td>5b softmax</td><td>softmax over the <code>pos + 1</code> scores (your test with <code>size</code> &lt; length!)</td><td>the same row of <code>att</code></td></tr>
+<tr><td>5c mix</td><td><code>Σ_t att[h][t] × (slice h of value_cache[l][t])</code></td><td><code>scratch</code>, slice h</td></tr>
+</table>
+<p>At the end, all 6 slices of <code>scratch</code> are filled: the heads are already "glued back together".</p>
+
+<div class="box example"><div class="t">Example: 1 head of 2 cells, 3 tokens (pos = 2)</div>
+<span class="math">q   = [1, 0]
+k0  = [1, 0]   k1 = [0, 1]   k2 = [1, 1]
+v0  = [10, 0]  v1 = [0, 10]  v2 = [5, 5]
+
+5a  scores  = [1, 0, 1] / √2  = [0.707, 0, 0.707]
+5b  softmax                   = [0.401, 0.198, 0.401]
+5c  scratch = 0.401×[10,0] + 0.198×[0,10] + 0.401×[5,5] = [6.02, 3.98]</span></div>
+
+<div class="box tldr"><div class="t">No causal mask</div>
+<p>In picoGPT, the future is masked with −∞. Here the loop stops at <code>t ≤ pos</code>, and the future is not in the cache yet: the mask is <b>implicit</b>.</p></div>
+
+<p><b><code>att</code></b> is 6 × 256: one row of 256 per head, but only <code>pos + 1</code> cells are used. Row h starts at <code>h × 256</code>.</p>
+
+<h4>GQA: <code>h / kv_mul</code></h4>
+<p>On some models, several q heads <b>share</b> the same k/v slice (this makes the cache smaller). The k/v slice to read for head h is <code>h / kv_mul</code> (integer division):</p>
+<span class="math">4 q heads, 2 kv heads → kv_mul = 2:   q0, q1 → kv 0     q2, q3 → kv 1</span>
+<p>For stories15M, kv_mul = 1 (head h → slice h). Write it with <code>h / kv_mul</code> anyway.</p>
+
+<script type="text/x-c" data-start="281">        // multihead attention. iterate over all heads
+        int h;
+        #pragma omp parallel for private(h)
+        for (h = 0; h < p->n_heads; h++) {
+            // get the query vector for this head
+            float* q = s->q + h * head_size;
+            // attention scores for this head
+            float* att = s->att + h * p->seq_len;
+            // iterate over all timesteps, including the current one
+            for (int t = 0; t <= pos; t++) {
+                // get the key vector for this head and at this timestep
+                float* k = s->key_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
+                // calculate the attention score as the dot product of q and k
+                float score = 0.0f;
+                for (int i = 0; i < head_size; i++) {
+                    score += q[i] * k[i];
+                }
+                score /= sqrtf(head_size);
+                // save the score to the attention buffer
+                att[t] = score;
+            }
+
+            // softmax the scores to get attention weights, from 0..pos inclusively
+            softmax(att, pos + 1);
+
+            // weighted sum of the values, store back into xb
+            float* xb = s->xb + h * head_size;
+            memset(xb, 0, head_size * sizeof(float));
+            for (int t = 0; t <= pos; t++) {
+                // get the value vector for this head and at this timestep
+                float* v = s->value_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
+                // get the attention weight for this timestep
+                float a = att[t];
+                // accumulate the weighted value into xb
+                for (int i = 0; i < head_size; i++) {
+                    xb[i] += a * v[i];
+                }
+            }
+        }</script>
+<div class="box port"><div class="t">For your port</div>
+<ul>
+<li>Reset slice h of <code>scratch</code> to <b>zero</b> before 5c (line 308, <code>memset</code>): you add into it.</li>
+<li>You read the cache and write to <code>att</code> and <code>scratch</code>. These are separate fields of RunState. <b>Rust note:</b> borrow them separately.</li>
+</ul></div>
+
+<!-- ================= step 6 ================= -->
+<h3 id="f-res">Step 6 — Attention output + residual</h3>
+<p><b>What it does:</b> mix the notes of the 6 heads with one W, then <b>add</b> them to x (you staple your notes onto the token's sheet, you do not replace it).</p>
+<span class="math">attention_out = attention_output[l] · scratch     (288×288)·(288×1) = 288×1
+x = x + attention_out                             (cell by cell)</span>
+<div class="box example"><div class="t">Residual example</div>
+<span class="math">x = [1, 2],  attention_out = [0.5, −1]   →   x = [1.5, 1]</span></div>
+<script type="text/x-c" data-start="321">        // final matmul to get the output of the attention
+        matmul(s->xb2, s->xb, w->wo + l*dim*dim, dim, dim);
+
+        // residual connection back into x
+        for (int i = 0; i < dim; i++) {
+            x[i] += s->xb2[i];
+        }</script>
+
+<!-- ================= step 7 ================= -->
+<h3 id="f-7">Step 7 — Norm before the feed-forward</h3>
+<p><b>What it does:</b> same as step 2, with different weights. x stays untouched (for step 10).</p>
+<span class="math">scratch = rmsnorm(x, ffn_norm[l])</span>
+<script type="text/x-c" data-start="329">        // ffn rmsnorm
+        rmsnorm(s->xb, x, w->rms_ffn_weight + l*dim, dim);</script>
+
+<!-- ================= step 8 ================= -->
+<h3 id="f-8">Step 8 — gate and up: widen to 768</h3>
+<p><b>What it does:</b> two <code>W · x</code> on the same <code>scratch</code>, going from 288 to 768.</p>
+<span class="math">hb  = ffn_gate[l] · scratch     (768×288)·(288×1) = 768×1
+hb2 = ffn_up[l]   · scratch     (768×288)·(288×1) = 768×1</span>
+<script type="text/x-c" data-start="332">        // Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
+        // first calculate self.w1(x) and self.w3(x)
+        matmul(s->hb, s->xb, w->w1 + l*dim*hidden_dim, dim, hidden_dim);
+        matmul(s->hb2, s->xb, w->w3 + l*dim*hidden_dim, dim, hidden_dim);</script>
+
+<!-- ================= step 9 ================= -->
+<h3 id="f-ffn">Step 9 — SwiGLU: combine gate and up</h3>
+<p><b>What it does:</b> for each of the 768 cells: <code>hb[i] = silu(hb[i]) × hb2[i]</code>. No W, just cell by cell.</p>
+<p><b>silu</b>: <code>silu(z) = z × sigmoid(z)</code>, with <code>sigmoid(z) = 1 / (1 + e^(−z))</code>. Roughly: keep positive values, squash negative values toward 0 (gently).</p>
+<div class="box analogy"><div class="t">Analogy</div>
+<p>gate (after silu) = <b>how far to open the tap</b>; up = <b>the water</b>. You keep "opening × water".</p></div>
+<div class="box example"><div class="t">Example: 2 cells instead of 768</div>
+<span class="math">hb  = [2, −1]      hb2 = [3, 4]
+silu(2)  =  2 × 0.881 =  1.762
+silu(−1) = −1 × 0.269 = −0.269
+hb = [1.762 × 3, −0.269 × 4] = [5.285, −1.076]</span></div>
+<script type="text/x-c" data-start="337">        // SwiGLU non-linearity
+        for (int i = 0; i < hidden_dim; i++) {
+            float val = s->hb[i];
+            // silu(x)=x*σ(x), where σ(x) is the logistic sigmoid
+            val *= (1.0f / (1.0f + expf(-val)));
+            // elementwise multiply with w3(x)
+            val *= s->hb2[i];
+            s->hb[i] = val;
+        }</script>
+
+<!-- ================= step 10 ================= -->
+<h3 id="f-10">Step 10 — down + residual: back to 288</h3>
+<p><b>What it does:</b> one W that brings 768 back down to 288, then you <b>add</b> it to x.</p>
+<span class="math">scratch = ffn_down[l] · hb      (288×768)·(768×1) = 288×1
+x = x + scratch</span>
+<script type="text/x-c" data-start="347">        // final matmul to get the output of the ffn
+        matmul(s->xb, s->hb, w->w2 + l*dim*hidden_dim, hidden_dim, dim);
+
+        // residual connection
+        for (int i = 0; i < dim; i++) {
+            x[i] += s->xb[i];
+        }
+    }</script>
+<div class="box warn"><div class="t">Two pitfalls</div>
+<p>In the down matmul, <code>n</code> = 768 and <code>d</code> = 288: the reverse of gate/up.</p>
+<p>In the file the order is gate, <b>down</b>, up (w1, w2, w3). But in the computation, gate and up go together, and down comes after.</p></div>
+<p><b>Then go back to step 2</b> with the next layer (l + 1), up to l = 5.</p>
+
+<!-- ================= step 11 ================= -->
+<h3 id="f-11">Step 11 — Final norm</h3>
+<p><b>What it does:</b> one last norm, after the 6 layers.</p>
+<span class="math">scratch = rmsnorm(x, final_norm)</span>
+<p>The C writes <code>rmsnorm(x, x, …)</code> (in place). Writing into <code>scratch</code> gives the same result: the normalized x is only used at step 12. <b>Rust note:</b> this also avoids a borrow problem (reading and writing x at once).</p>
+
+<!-- ================= step 12 ================= -->
+<h3 id="f-out">Step 12 — Logits</h3>
+<p><b>What it does:</b> a W with 32,000 rows: one score per possible token.</p>
+<span class="math">logits = lm_head · scratch      (32000×288)·(288×1) = 32000×1</span>
+<p>If <code>lm_head</code> is missing (<code>None</code>/null, as in stories15M), use <code>token_embeddings</code> instead (same shape 32000×288). forward returns <code>logits</code>.</p>
+<script type="text/x-c" data-start="356">    // final rmsnorm
+    rmsnorm(x, x, w->rms_final_weight, dim);
+
+    // classifier into logits
+    matmul(s->logits, x, w->wcls, p->dim, p->vocab_size);
+    return s->logits;
+}</script>
+
+<!-- ================= splitting ================= -->
+<h3 id="f-split">8.C Split into functions, and check as you go</h3>
+<table>
+<tr><th>Function (suggestion)</th><th>Steps</th><th>Check (pos = 0, token = 1)</th></tr>
+<tr><td>embedding</td><td>1</td><td><code>x</code> = row 1 of token_embeddings</td></tr>
+<tr><td>attention block (layer l)</td><td>2 → 6</td><td><code>x</code> after layer 0, compared to the C</td></tr>
+<tr><td>feed-forward block (layer l)</td><td>7 → 10</td><td><code>x</code> after layer 0, compared to the C</td></tr>
+<tr><td>output</td><td>11 → 12</td><td>first 5 logits + argmax, compared to the C</td></tr>
+</table>
+<p>forward = embedding, then a loop over l = 0…5 that calls both blocks, then the output.</p>
+<div class="box port"><div class="t">For your port</div>
+<ul>
+<li>A bug in forward does not crash: it gives wrong numbers. That is why you check after each function (reference values: a <code>printf</code> in the C, tolerance ~1e-5).</li>
+<li>The "[l]" slices of the Weights and the "[l][pos]" slices of the cache are <b>numbers</b> (a start offset) that you compute, then turn into a sub-slice when you call matmul.</li>
+</ul></div>
+
+<label class="check"><input type="checkbox" data-sec="forward"> I understood this section</label>
+</section>
+<!-- ============================================================ -->
+<section id="sampler">
+<h2>9. The sampler: choosing the next token</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p>With <code>-t 0</code>: take the highest score (argmax). Otherwise: divide by the temperature, apply softmax, and sample.</p></div>
+
+<script type="text/x-c" data-start="691">int sample(Sampler* sampler, float* logits) {
+    // sample the token given the logits and some hyperparameters
+    int next;
+    if (sampler->temperature == 0.0f) {
+        // greedy argmax sampling: take the token with the highest probability
+        next = sample_argmax(logits, sampler->vocab_size);
+    } else {
+        // apply the temperature to the logits
+        for (int q=0; q<sampler->vocab_size; q++) { logits[q] /= sampler->temperature; }
+        // apply softmax to the logits to get the probabilities for next token
+        softmax(logits, sampler->vocab_size);
+        // flip a (float) coin (this is our source of entropy for sampling)
+        float coin = random_f32(&sampler->rng_state);
+        // we sample from this distribution to get the next token
+        if (sampler->topp <= 0 || sampler->topp >= 1) {
+            // simply sample from the predicted probability distribution
+            next = sample_mult(logits, sampler->vocab_size, coin);
+        } else {
+            // top-p (nucleus) sampling, clamping the least likely tokens to zero
+            next = sample_topp(logits, sampler->vocab_size, sampler->topp, sampler->probindex, coin);
+        }
+    }
+    return next;
+}</script>
+
+<h3>9.1 argmax <span class="pill mvp">MVP</span></h3>
+<p>Line 590: walk through the 32,000 scores and keep the index of the largest one. No softmax needed: softmax does not change the order.
+<b>On a tie</b>, the C code keeps the <b>first</b> one (strict comparison <code>&gt;</code>). Do the same.</p>
+
+<h3>9.2 Temperature <span class="pill later">later</span></h3>
+<p>Divide the logits by T before softmax. T &lt; 1: the gaps grow (safer, more repetitive). T &gt; 1: the gaps shrink (more creative, wilder).</p>
+<div class="widget">
+  <h4>Temperature on 4 made-up tokens</h4>
+  <label>T = <input type="range" id="temp" min="0" max="2" step="0.05" value="1"> <span id="tempV" class="mono"></span></label>
+  <div class="bars" id="tempBars" style="margin-top:8px"></div>
+</div>
+
+<h3>9.3 sample_mult: sampling <span class="pill later">later</span></h3>
+<div class="box example"><div class="t">Example</div>
+<span class="math">probs = [0.1, 0.6, 0.3]      cumulative = [0.1, 0.7, 1.0]
+coin = 0.65 → first cumulative > 0.65 → index 1
+coin = 0.05 → index 0</span>
+<p>Analogy: a lottery wheel where each token gets a slice proportional to its probability.</p></div>
+<p>The randomness comes from <code>random_u32</code> (line 680): a xorshift, with 3 shifts + XOR + one multiplication. If you copy it bit for bit
+(with the same types: unsigned 64-bit integer, and a multiplication that overflows by wrapping around), you can even match the C output with <code>-t 1 -s 42</code>.</p>
+
+<h3>9.4 top-p <span class="pill later">later</span></h3>
+<p>Sort the tokens by probability, highest first. Keep the most likely ones until their total goes past p (0.9 by default). Then sample among them.
+The <code>cutoff</code> trick (line 634) drops, in advance, the tokens too small to ever make the cut. That way there is less to sort.</p>
+
+<label class="check"><input type="checkbox" data-sec="sampler"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="tokenizer">
+<h2>10. The tokenizer: numbers ↔ text</h2>
+<div class="box tldr"><div class="t">In one sentence</div>
+<p><code>tokenizer.bin</code> is a table of 32,000 pieces of text (each with a score). <b>decode</b> = read cell number id. <b>encode</b> = the reverse, but more complex (BPE).</p></div>
+
+<h3>10.1 The tokenizer.bin format <span class="pill mvp">MVP</span></h3>
+<script type="text/x-c" data-start="399">    if (fread(&t->max_token_length, sizeof(int), 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE); }
+    int len;
+    for (int i = 0; i < vocab_size; i++) {
+        if (fread(t->vocab_scores + i, sizeof(float), 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE);}
+        if (fread(&len, sizeof(int), 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE); }
+        t->vocab[i] = (char *)malloc(len + 1);
+        if (fread(t->vocab[i], len, 1, file) != 1) { fprintf(stderr, "failed read\n"); exit(EXIT_FAILURE); }
+        t->vocab[i][len] = '\0'; // add the string terminating token
+    }</script>
+<span class="math">[int32 max_token_length = 27]
+then 32,000 times: [f32 score] [int32 len] [len bytes of text, no \0]</span>
+<p>A few real entries:</p>
+<table>
+<tr><th class="num">id</th><th>text</th><th class="num">score</th><th>note</th></tr>
+<tr><td class="num">0</td><td><code>&lt;unk&gt;</code></td><td class="num">0</td><td>unknown</td></tr>
+<tr><td class="num">1</td><td><code>\n&lt;s&gt;\n</code></td><td class="num">0</td><td>BOS (beginning of sequence)</td></tr>
+<tr><td class="num">2</td><td><code>\n&lt;/s&gt;\n</code></td><td class="num">0</td><td>EOS</td></tr>
+<tr><td class="num">3 … 258</td><td><code>&lt;0x00&gt;</code> … <code>&lt;0xFF&gt;</code></td><td class="num">0</td><td>the 256 raw bytes (13 = <code>&lt;0x0A&gt;</code> = newline)</td></tr>
+<tr><td class="num">260</td><td><code>␣t</code></td><td class="num">−1</td><td>first real tokens: the most frequent merges</td></tr>
+<tr><td class="num">9038</td><td><code>␣Once</code></td><td class="num">−8779</td><td>the ␣ (space) is part of the token</td></tr>
+</table>
+<p>The texts are <b>bytes</b> (UTF-8), not always full characters. One emoji can be split across several tokens.</p>
+
+<h3>10.2 decode <span class="pill mvp">MVP</span></h3>
+<script type="text/x-c" data-start="418">char* decode(Tokenizer* t, int prev_token, int token) {
+    char *piece = t->vocab[token];
+    // following BOS (1) token, sentencepiece decoder strips any leading whitespace (see PR #89)
+    if (prev_token == 1 && piece[0] == ' ') { piece++; }
+    // careful, some tokens designate raw bytes, and look like e.g. '<0x01>'
+    // parse this and convert and return the actual byte
+    unsigned char byte_val;
+    if (sscanf(piece, "<0x%02hhX>", &byte_val) == 1) {
+        piece = (char*)t->byte_pieces + byte_val * 2;
+    }
+    return piece;
+}</script>
+<ol>
+<li>Take the token's text.</li>
+<li>If the previous token is BOS and the text starts with a space → remove that space (<code>piece++</code> = move forward one character). That is why the story starts with "Once" and not "␣Once".</li>
+<li>If the text looks like <code>&lt;0xXX&gt;</code> → replace it with the real byte XX. E.g. <code>&lt;0x0A&gt;</code> → a real newline.</li>
+</ol>
+<p><code>safe_printf</code> (line 431): if the piece is 1 byte and is neither a printable character nor whitespace, it is not printed.</p>
+<div class="box port"><div class="t">For your port</div>
+<p>To match the C <b>byte for byte</b>, keep tokens as bytes and write bytes to the output. If you turn them into your language's string type, a token that holds half of a UTF-8 character will cause trouble. <b>Rust note:</b> this applies to String; use Vec&lt;u8&gt; and write raw bytes.
+To compare: <code>./run stories15M.bin -t 0 &gt; ref.txt</code>, then <code>diff</code> it with your output (the tok/s line goes to stderr, so it does not get in the way).</p></div>
+
+<h3>10.3 encode: BPE <span class="pill later">later</span></h3>
+<p>Only needed with a prompt. The idea in 3 steps:</p>
+<ol>
+<li>BOS, then a "dummy" space before the text, then each UTF-8 character becomes a token (or its raw bytes, id = byte + 3, if it is not in the vocab).</li>
+<li>Repeat: among all neighboring pairs, find the one whose concatenation is in the vocab with the <b>best score</b>, and merge it.</li>
+<li>Stop when no pair can be merged anymore.</li>
+</ol>
+<div class="box example"><div class="t">Real example: "Once" (scores read from tokenizer.bin)</div>
+<span class="math">start      [␣] [O] [n] [c] [e]
+candidates ␣O (−179)  On (−2692)  nc (−17349)  ce (−87)   → best: ce
+          [␣] [O] [n] [ce]
+          → ␣O (−179)
+          [␣O] [n] [ce]
+          → ␣On (−1292)
+          [␣On] [ce]
+          → ␣Once (−8779)
+          [␣Once]          = id 9038</span>
+<p>The vocab is sorted once (<code>qsort</code>) so strings can be found by binary search (<code>bsearch</code>). In most languages, a hash map from text → id does the same job.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="tokenizer"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="port">
+<h2>11. The porting plan, mapped to run.c</h2>
+<table>
+<tr><th>#</th><th>Step</th><th>run.c</th><th>Validation test</th></tr>
+<tr><td>1</td><td>Overview, read generate</td><td>729–783</td><td>You can explain the trace from section 3 without looking</td></tr>
+<tr><td>2</td><td>Read the Config</td><td>19–27, 147–150</td><td>Print 288 768 6 6 6 32000 256 · shared = yes</td></tr>
+<tr><td>3</td><td>Load the weights</td><td>111–140</td><td>The cursor lands exactly on the end of the file; first 5 floats match the C</td></tr>
+<tr><td>4</td><td>rmsnorm, softmax, matmul</td><td>182–229</td><td>Examples from section 7 (including a 2×3 matmul)</td></tr>
+<tr><td>5</td><td>forward</td><td>231–362</td><td>Logits at pos 0 for token 1: the first 5 + the argmax match the C</td></tr>
+<tr><td>6</td><td>argmax</td><td>590–601</td><td>Same first token as the C</td></tr>
+<tr><td>7</td><td>Load tokenizer + decode + loop</td><td>385–443, 729–783</td><td><b>MVP</b>: empty <code>diff</code> against <code>./run stories15M.bin -t 0</code></td></tr>
+<tr><td>8</td><td>BPE encode, temperature, top-p</td><td>452–571, 603–714</td><td><code>-i "Once upon"</code> → [1, 9038, 2501]; then <code>-t 1 -s 42</code> identical</td></tr>
+<tr><td>9</td><td>Performance</td><td>221, 283</td><td>Compare tok/s with the C (~218 tok/s with <code>make run</code>)</td></tr>
+</table>
+
+<div class="box tldr"><div class="t">A performance note that will help you in interviews</div>
+<p>For each token, you read <b>all</b> the weights once (15.2 million floats ≈ 61 MB) and do <b>only one</b> multiply-add per weight read.
+So you spend more time <i>bringing</i> numbers in from memory than computing. Decoding is <b>limited by memory bandwidth</b>
+(memory-bound). At 218 tok/s, that is already ~13 GB/s of reads. This is the deep reason for <b>batching</b>: serve several requests
+with a single read of the weights. If you want to go further, this leads straight to continuous batching.</p></div>
+
+<label class="check"><input type="checkbox" data-sec="port"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="quiz">
+<h2>12. Interview questions (hide the answer, try first)</h2>
+<details><summary>Why a KV cache? What would you recompute without it?</summary>
+<p>The keys and values of a past token never change (the future does not affect them). Without a cache, for each new token you would run the <b>whole</b> sequence
+through the model again to recompute them. That cost grows with the length, at every step. With the cache: one token per step, and you just reread the stored k/v.</p></details>
+<details><summary>Where is the causal mask in run.c?</summary>
+<p>Nowhere: you only handle one query at a time (the last token), and the loop stops at <code>t &lt;= pos</code>. The future does not exist yet.</p></details>
+<details><summary>Why subtract the max in softmax?</summary>
+<p>To keep exp from overflowing in f32. The result is mathematically the same, because the factor e^(−max) cancels out on top and bottom.</p></details>
+<details><summary>How big is the KV cache for stories15M? And with GQA?</summary>
+<p>2 (k and v) × 6 layers × 256 positions × 288 × 4 bytes = 3.54 MB. With kv_mul = 2, kv_dim is halved, so the cache is too. On large models and long sequences, the cache is what limits the number of concurrent requests → PagedAttention.</p></details>
+<details><summary>Why is RoPE a "relative" encoding?</summary>
+<p>q is rotated by m·θ, k by n·θ; their dot product depends only on (m − n)·θ. The model sees distances, not absolute positions.</p></details>
+<details><summary>RMSNorm vs LayerNorm?</summary>
+<p>LayerNorm: subtract the mean, divide by the standard deviation, × gain + bias. RMSNorm: divide by the root of the mean of the squares, × gain. No centering, no bias, less computation.</p></details>
+<details><summary>Why is decoding memory-bound?</summary>
+<p>Each weight is read once per token and used for only one multiply-add. The chip waits on memory more than it computes. Batching several requests reuses each weight read several times.</p></details>
+<details><summary>What happens during the prompt in run.c, and why is it inefficient?</summary>
+<p>One forward per prompt token, and the logits are thrown away. A server does a <b>prefill</b>: the whole prompt in one pass (matrix × matrix matmul instead of matrix × vector). That is much more efficient because it is compute-bound.</p></details>
+<details><summary>Why is -t 0 deterministic even without setting the seed?</summary>
+<p>With temperature 0, sample() does an argmax and never calls the random number generator.</p></details>
+<details><summary>What is the sign of vocab_size for?</summary>
+<p>Positive: the classifier reuses the embedding table. Negative: a separate wcls matrix is stored at the end of the file (after the 2 old RoPE arrays, which you skip).</p></details>
+<label class="check"><input type="checkbox" data-sec="quiz"> I understood this section</label>
+</section>
+
+<!-- ============================================================ -->
+<section id="glossaire">
+<h2>13. Quick glossary</h2>
+<table>
+<tr><td><b>logits</b></td><td>Raw (unnormalized) scores for each token in the vocab. Softmax turns them into probabilities.</td></tr>
+<tr><td><b>residual stream</b></td><td>The vector <code>x</code> that flows through the whole model; each block <i>adds</i> its contribution to it.</td></tr>
+<tr><td><b>head_size</b></td><td>Size of the slice of q/k/v given to one head (48).</td></tr>
+<tr><td><b>KV cache</b></td><td>Storage for the keys/values of all past tokens, per layer.</td></tr>
+<tr><td><b>GQA / MQA</b></td><td>Grouped/Multi-Query Attention: fewer k/v heads than q heads (MQA = only 1 kv head).</td></tr>
+<tr><td><b>RoPE</b></td><td>Rotary Position Embedding: the position is encoded by rotating pairs of values in q and k.</td></tr>
+<tr><td><b>SwiGLU</b></td><td>Gated FFN: silu(w1·x) × (w3·x), then w2.</td></tr>
+<tr><td><b>BOS / EOS</b></td><td>Special tokens 1 and 2: beginning / end of sequence.</td></tr>
+<tr><td><b>BPE</b></td><td>Byte Pair Encoding: keep merging pairs of neighboring pieces while you can, in priority order.</td></tr>
+<tr><td><b>row-major</b></td><td>A matrix stored row after row: element (i, j) is at index i × num_columns + j.</td></tr>
+<tr><td><b>prefill / decode</b></td><td>Process the prompt in one go / generate one token at a time.</td></tr>
+</table>
+</section>
+
+<footer>Part of the llama2.rs lab · source: karpathy/llama2.c run.c (973 lines) · values checked against stories15M.bin and tokenizer.bin.</footer>
+</main>
+
+<script>
+// ---------- C code rendering ----------
+const KW = new Set("for if else while return int float char void unsigned long typedef struct const sizeof break continue ssize_t size_t int8_t".split(" "));
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function hlLine(line){
+  const re = /(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(0x[0-9A-Fa-f]+(?:ull)?|\d+\.?\d*(?:e-?\d+)?f?)\b|\b([A-Za-z_]\w*)\b|(#pragma.*$)/g;
+  let out="", last=0, m;
+  while((m=re.exec(line))){
+    out += esc(line.slice(last,m.index));
+    if(m[1]) out += '<span class="cm">'+esc(m[1])+'</span>';
+    else if(m[2]) out += '<span class="st">'+esc(m[2])+'</span>';
+    else if(m[3]) out += '<span class="nu">'+esc(m[3])+'</span>';
+    else if(m[4]) out += KW.has(m[4]) ? '<span class="kw">'+m[4]+'</span>' : esc(m[4]);
+    else if(m[5]) out += '<span class="cm">'+esc(m[5])+'</span>';
+    last = re.lastIndex;
+  }
+  return out + esc(line.slice(last));
+}
+document.querySelectorAll('script[type="text/x-c"]').forEach(el=>{
+  const start = +el.dataset.start || 1;
+  const hl = new Set((el.dataset.hl||"").split(",").filter(Boolean).map(Number));
+  const lines = el.textContent.replace(/^\n/,"").split("\n");
+  const pre = document.createElement("pre"); pre.className="code";
+  pre.innerHTML = lines.map((l,i)=>`<span class="l${hl.has(start+i)?' hl':''}" data-n="${start+i}">${hlLine(l)||" "}</span>`).join("");
+  el.replaceWith(pre);
+  const cap = document.createElement("div"); cap.className="codecap";
+  cap.textContent = `run.c, lines ${start}–${start+lines.length-1}` + (hl.size? " · highlighted lines = the ones to remember" : "");
+  pre.after(cap);
+});
+
+// ---------- TOC + progress ----------
+const secs = [...document.querySelectorAll("main section")];
+const toc = document.getElementById("toclinks");
+secs.forEach(s=>{
+  const h = s.querySelector("h2"); const m = h.textContent.match(/^(\d+)\.\s*(.*)$/);
+  const a = document.createElement("a"); a.href="#"+s.id; a.dataset.sec=s.id;
+  a.innerHTML = `<span class="n">${m?m[1]:""}</span><span>${m?m[2]:h.textContent}</span>`;
+  toc.appendChild(a);
+  s.querySelectorAll("h3[id]").forEach(h3=>{
+    const b=document.createElement("a"); b.href="#"+h3.id; b.className="lvl2"; b.textContent=h3.textContent.replace(/(MVP|new|later)$/,"").trim(); toc.appendChild(b);
+  });
+});
+const KEY="runc-walkthrough-progress";
+const state = JSON.parse(localStorage.getItem(KEY)||"{}");
+const boxes = [...document.querySelectorAll(".check input")];
+function refresh(){
+  let done=0;
+  boxes.forEach(b=>{ b.checked=!!state[b.dataset.sec]; if(b.checked) done++;
+    const a=toc.querySelector(`a[data-sec="${b.dataset.sec}"]`); if(a) a.classList.toggle("done",b.checked); });
+  document.getElementById("pbar").style.width = (100*done/boxes.length)+"%";
+  document.getElementById("ptext").textContent = `${done} / ${boxes.length} sections understood`;
+}
+boxes.forEach(b=>b.addEventListener("change",()=>{state[b.dataset.sec]=b.checked;localStorage.setItem(KEY,JSON.stringify(state));refresh();}));
+refresh();
+const obs = new IntersectionObserver(es=>{es.forEach(e=>{ if(e.isIntersecting){
+  toc.querySelectorAll("a:not(.lvl2)").forEach(a=>a.classList.toggle("active",a.dataset.sec===e.target.id)); }});},{rootMargin:"-30% 0px -60% 0px"});
+secs.forEach(s=>obs.observe(s));
+
+// ---------- checkpoint layout ----------
+const L=6, D=288, H=768, V=32000, S=256, HS=48;
+// [C name, float count, color, description, suggested name, formula, stories15M value, C line]
+const segs = [
+  ["header (Config)", 7, "#888", "7 int32 = 28 bytes", "(Config)", "7 fields", "7", "147"],
+  ["token_embedding_table", V*D, "#2f6fde", "(32000, 288), also used as wcls (shared)", "token_embeddings", "vocab_size × dim", "32000 × 288", "115–116"],
+  ["rms_att_weight", L*D, "#e0a800", "(6, 288)", "attention_norm", "n_layers × dim", "6 × 288", "117–118"],
+  ["wq", L*D*D, "#d1495b", "(6, 288, 288)", "attention_query", "n_layers × dim × (n_heads × head_size)", "6 × 288 × 288", "119–120"],
+  ["wk", L*D*D, "#ef7b45", "(6, 288, 288)", "attention_key", "n_layers × dim × kv_dim", "6 × 288 × 288", "121–122"],
+  ["wv", L*D*D, "#f2b134", "(6, 288, 288)", "attention_value", "n_layers × dim × kv_dim", "6 × 288 × 288", "123–124"],
+  ["wo", L*D*D, "#8f5bd6", "(6, 288, 288)", "attention_output", "n_layers × (n_heads × head_size) × dim", "6 × 288 × 288", "125–126"],
+  ["rms_ffn_weight", L*D, "#e0a800", "(6, 288)", "ffn_norm", "n_layers × dim", "6 × 288", "127–128"],
+  ["w1", L*H*D, "#1f8a4c", "(6, 768, 288)", "ffn_gate", "n_layers × dim × hidden_dim", "6 × 288 × 768", "129–130"],
+  ["w2", L*D*H, "#38b27a", "(6, 288, 768)", "ffn_down", "n_layers × hidden_dim × dim", "6 × 768 × 288", "131–132"],
+  ["w3", L*H*D, "#6fd3a0", "(6, 768, 288)", "ffn_up", "n_layers × dim × hidden_dim", "6 × 288 × 768", "133–134"],
+  ["rms_final_weight", D, "#e0a800", "(288,)", "final_norm", "dim", "288", "135–136"],
+  ["freq_cis_real (skip)", S*HS/2, "#bbb", "old precomputed RoPE, 256×24", "— (skip)", "seq_len × head_size / 2", "256 × 48 / 2", "137"],
+  ["freq_cis_imag (skip)", S*HS/2, "#999", "old precomputed RoPE, 256×24", "— (skip)", "seq_len × head_size / 2", "256 × 48 / 2", "138"],
+];
+const total = segs.reduce((a,s)=>a+s[1],0);
+const bar=document.getElementById("layoutBar"), leg=document.getElementById("layoutLegend"), info=document.getElementById("layoutInfo");
+const fmt = n=>n.toLocaleString("en-US");
+let off=0; const rows=[];
+segs.forEach(s=>{
+  const d=document.createElement("div"); d.style.width=(100*s[1]/total)+"%"; d.style.background=s[2];
+  const o=off; const show=()=>{info.innerHTML=`<b>${s[0]}</b> ${s[3]}<br>${fmt(s[1])} floats · starts at float #${fmt(o)} (byte ${fmt(o*4)}) · ${(100*s[1]/total).toFixed(2)}% of the file`;};
+  d.addEventListener("mouseenter",show); d.addEventListener("click",show); bar.appendChild(d);
+  const l=document.createElement("span"); l.style.setProperty("--c",s[2]); l.textContent=s[0]; leg.appendChild(l);
+  const skip = s[4].startsWith("—"), hdr = s[0].startsWith("header");
+  rows.push(`<tr${skip||hdr?' style="color:var(--muted)"':''}><td><code>${s[0]}</code><br><small>l. ${s[7]}</small></td><td><code>${s[4]}</code></td><td>${s[5]}</td><td>${s[6]}</td>`+
+    `<td class="num">${fmt(s[1])}</td><td class="num">${fmt(s[1]*4)}</td><td class="num">${fmt(o)}</td><td class="num">${fmt(o*4)}</td></tr>`);
+  off+=s[1];
+});
+rows.push(`<tr><td><code>wcls</code><br><small>l. 139</small></td><td><code>lm_head</code></td><td>vocab_size × dim, <b>only if not shared</b></td><td>shared here → nothing to read</td>`+
+  `<td class="num">0</td><td class="num">0</td><td class="num">${fmt(off)}</td><td class="num">${fmt(off*4)}</td></tr>`);
+rows.push(`<tr><th colspan="4">Total (= file size)</th><th class="num">${fmt(total)}</th><th class="num">${fmt(total*4)}</th><th colspan="2"></th></tr>`);
+document.getElementById("layoutTable").innerHTML = `<tr><th>C tensor</th><th>Suggested name</th><th>Formula (Config)</th><th>stories15M</th><th class="num">Floats</th><th class="num">Bytes (×4)</th><th class="num">Start (float)</th><th class="num">Start (byte)</th></tr>`+rows.join("");
+
+// ---------- FLOPs bars ----------
+const flops=[["attention q,k,v,o", 4*L*D*D],["FFN w1,w2,w3", 3*L*D*H],["classifier", V*D],["attention scores (pos=255)", 2*L*D*256]];
+const fmax=Math.max(...flops.map(f=>f[1])), fsum=flops.slice(0,3).reduce((a,f)=>a+f[1],0);
+document.getElementById("flopBars").innerHTML = flops.map(f=>`<div class="row"><span class="lab" style="width:190px">${f[0]}</span><span class="bar" style="width:${300*f[1]/fmax}px"></span><span class="val">${fmt(f[1])} mult-add${f[0].startsWith("attention scores")?" (worst case)":" · "+(100*f[1]/fsum).toFixed(1)+"% of the matmuls"}</span></div>`).join("");
+
+// ---------- KV calculator ----------
+function kv(){
+  const l=+kvL.value,t=+kvT.value,h=+kvH.value,m=Math.max(1,+kvM.value);
+  const kvd=D/m, loff=l*S*kvd, kh=Math.floor(h/m), o=loff+t*kvd+kh*HS;
+  kvOut.innerHTML=`kv_dim = 288 / ${m} = ${kvd}<br>loff = ${l} × 256 × ${kvd} = ${fmt(loff)}<br>`+
+   `kv head = ${h} / ${m} = ${kh}<br>k for head ${h}, position ${t}, layer ${l} = key_cache[${fmt(loff)} + ${t}×${kvd} + ${kh}×48] = <b>key_cache[${fmt(o)} … ${fmt(o+HS-1)}]</b>`+
+   (kh*HS>=kvd?'<br><span style="color:var(--red)">head out of range with this kv_mul (there are only 6 q heads)</span>':'');
+}
+["kvL","kvT","kvH","kvM"].forEach(id=>document.getElementById(id).addEventListener("input",kv)); kv();
+
+// ---------- RoPE widget ----------
+function rope(){
+  const f=+rFreq.value, m=+rM.value, n=+rN.value; rMv.textContent=m; rNv.textContent=n;
+  const aq=m*f, ak=n*f, dot=Math.cos(aq-ak);
+  rOut.innerHTML=`angle q = ${m}×${f} = ${aq.toFixed(2)} rad<br>angle k = ${n}×${f} = ${ak.toFixed(2)} rad<br>gap = ${(m-n)} → q·k = cos(${(aq-ak).toFixed(2)}) = <b>${dot.toFixed(3)}</b>`;
+  const R=95, arrow=(a,c,lab)=>{const x=R*Math.cos(a),y=-R*Math.sin(a);return `<line x1="0" y1="0" x2="${x}" y2="${y}" stroke="${c}" stroke-width="4" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="5" fill="${c}"/><text x="${x*1.12}" y="${y*1.12+4}" fill="${c}" font-size="14" text-anchor="middle" font-weight="700">${lab}</text>`;};
+  rSvg.innerHTML=`<circle r="${R}" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="-110" y1="0" x2="110" y2="0" stroke="var(--border)"/><line x1="0" y1="-110" x2="0" y2="110" stroke="var(--border)"/>`+arrow(aq,"#d1495b","q")+arrow(ak,"#1f8a4c","k");
+}
+["rFreq","rM","rN"].forEach(id=>document.getElementById(id).addEventListener("input",rope)); rope();
+
+// ---------- temperature widget ----------
+const toks=["cat","dog","apple","car"], lg=[2.0,1.5,0.3,-1.0];
+function temp(){
+  const T=+document.getElementById("temp").value; tempV.textContent=T.toFixed(2)+(T===0?"  → argmax":"");
+  let p;
+  if(T===0){ const i=lg.indexOf(Math.max(...lg)); p=lg.map((_,j)=>j===i?1:0); }
+  else { const z=lg.map(v=>v/T), mx=Math.max(...z), e=z.map(v=>Math.exp(v-mx)), s=e.reduce((a,b)=>a+b,0); p=e.map(v=>v/s); }
+  tempBars.innerHTML=toks.map((t,i)=>`<div class="row"><span class="lab">${t}</span><span class="bar" style="width:${300*p[i]}px"></span><span class="val">logit ${lg[i]} → ${(100*p[i]).toFixed(1)} %</span></div>`).join("");
+}
+document.getElementById("temp").addEventListener("input",temp); temp();
+</script>
+</body>
+</html>
