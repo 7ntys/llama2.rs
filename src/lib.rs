@@ -21,7 +21,7 @@ pub fn entry_point() -> Result<(), Error> {
     let tokenizer_path = "reference/llama2.c/tokenizer.bin";
     let mut transformer = Transformer::build_transformer(weight_path)?;
     let tokenizer = Tokenizer::new(tokenizer_path, &transformer.cfg)?;
-    let mut sampler = Sampler::build_sampler(1.0, 42);
+    let mut sampler = Sampler::build_sampler(1.0, 42, 0.9);
 
     let mut timer: Option<Instant> = None;
 
