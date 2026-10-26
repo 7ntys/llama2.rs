@@ -16,12 +16,17 @@ mod tokenizer;
 mod transformer;
 mod weights;
 
-pub fn entry_point() -> Result<(), Error> {
-    let weight_path = "reference/llama2.c/stories15M.bin";
-    let tokenizer_path = "reference/llama2.c/tokenizer.bin";
-    let mut transformer = Transformer::build_transformer(weight_path)?;
-    let tokenizer = Tokenizer::new(tokenizer_path, &transformer.cfg)?;
-    let mut sampler = Sampler::build_sampler(1.0, 42, 0.9);
+pub fn entry_point(
+    weight_path: String,
+    tokenizer_path: String,
+    temperature: f32,
+    seed: u64,
+    top_p: f32,
+    prompt: String,
+) -> Result<(), Error> {
+    let mut transformer = Transformer::build_transformer(weight_path.as_str())?;
+    let tokenizer = Tokenizer::new(tokenizer_path.as_str(), &transformer.cfg)?;
+    let mut sampler = Sampler::build_sampler(temperature, seed, top_p);
 
     let mut timer: Option<Instant> = None;
 
@@ -31,7 +36,7 @@ pub fn entry_point() -> Result<(), Error> {
     let mut output = std::io::stdout();
 
     // Test encoding prompt:
-    let prompt_tokens = tokenizer.encode("Hello my name is");
+    let prompt_tokens = tokenizer.encode(&prompt);
 
     // hard kv cache limit
     while pos < transformer.cfg.seq_len {
